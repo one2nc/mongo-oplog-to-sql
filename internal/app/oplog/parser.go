@@ -15,20 +15,46 @@ type OplogEntry struct {
 }
 
 func GenerateSQL(oplog string) []string {
-	var oplogObj OplogEntry
-	if err := json.Unmarshal([]byte(oplog), &oplogObj); err != nil {
-		return []string{}
+	var oplogObjs []OplogEntry
+	err := json.Unmarshal([]byte(oplog), &oplogObjs)
+	if err != nil {
+		var oplogObj OplogEntry
+		err := json.Unmarshal([]byte(oplog), &oplogObj)
+		if err != nil {
+			return []string{}
+		}
+		oplogObjs = append(oplogObjs, oplogObj)
 	}
 
-	return generateSQL(oplogObj)
+	// cache to keep track of create schema and create table queries
+	cacheMap := make(map[string]bool)
+
+	sqlStatements := make([]string, 0)
+	for _, oplogObj := range oplogObjs {
+		sqls, err := generateSQL(oplogObj, cacheMap)
+		if err != nil {
+			break
+		}
+		sqlStatements = append(sqlStatements, sqls...)
+	}
+	return sqlStatements
 }
 
-func generateSQL(oplog OplogEntry) []string {
+func generateSQL(oplog OplogEntry, cacheMap map[string]bool) ([]string, error) {
 	sqls := []string{}
 	switch oplog.Op {
 	case "i":
-		sqls = append(sqls, generateCreateSchemaSQL(oplog.NS))
-		sqls = append(sqls, generateCreateTableSQL(oplog))
+		nsParts := strings.Split(oplog.NS, ".")
+		schemaName := nsParts[0]
+		if exits := cacheMap[schemaName]; !exits {
+			sqls = append(sqls, generateCreateSchemaSQL(schemaName))
+			cacheMap[schemaName] = true
+		}
+
+		if exits := cacheMap[oplog.NS]; !exits {
+			sqls = append(sqls, generateCreateTableSQL(oplog))
+			cacheMap[oplog.NS] = true
+		}
 		sqls = append(sqls, generateInsertSQL(oplog))
 	case "u":
 		if sql, err := generateUpdateSQL(oplog); err == nil {
@@ -39,12 +65,14 @@ func generateSQL(oplog OplogEntry) []string {
 			sqls = append(sqls, sql)
 		}
 	}
-	return sqls
+	if len(sqls) == 0 {
+		return []string{}, fmt.Errorf("invalid oplog")
+	}
+	return sqls, nil
 }
 
-func generateCreateSchemaSQL(ns string) string {
-	nsParts := strings.Split(ns, ".")
-	return fmt.Sprintf("CREATE SCHEMA %s;", nsParts[0])
+func generateCreateSchemaSQL(schemaName string) string {
+	return fmt.Sprintf("CREATE SCHEMA %s;", schemaName)
 }
 
 func generateCreateTableSQL(oplog OplogEntry) string {

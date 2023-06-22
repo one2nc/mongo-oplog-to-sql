@@ -19,6 +19,8 @@ func GenerateSQL(oplog OplogEntry) string {
 		return generateInsertSQL(oplog)
 	case "u":
 		return generateUpdateSQL(oplog)
+	case "d":
+		return generateDeleteSQL(oplog)
 	default:
 		return ""
 	}
@@ -56,15 +58,15 @@ func generateInsertSQL(oplog OplogEntry) string {
 }
 
 func generateUpdateSQL(oplog OplogEntry) string {
-	var sb strings.Builder
-	sb.WriteString("UPDATE ")
-	sb.WriteString(oplog.NS)
-	sb.WriteString(" SET ")
-
 	diffMap, ok1 := oplog.O["diff"].(map[string]interface{})
 	if !ok1 {
 		return ""
 	}
+
+	var sb strings.Builder
+	sb.WriteString("UPDATE ")
+	sb.WriteString(oplog.NS)
+	sb.WriteString(" SET ")
 
 	var setUnsetCols string
 	if setMap, ok := diffMap["u"].(map[string]interface{}); ok {
@@ -77,6 +79,21 @@ func generateUpdateSQL(oplog OplogEntry) string {
 
 	sb.WriteString(setUnsetCols)
 	sb.WriteString(whereClause(oplog.O2))
+	sb.WriteString(";")
+
+	return sb.String()
+}
+
+func generateDeleteSQL(oplog OplogEntry) string {
+	if len(oplog.O) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	sb.WriteString("DELETE FROM ")
+	sb.WriteString(oplog.NS)
+
+	sb.WriteString(whereClause(oplog.O))
 	sb.WriteString(";")
 
 	return sb.String()

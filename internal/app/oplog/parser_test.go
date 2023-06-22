@@ -126,6 +126,26 @@ func TestGenerateSQL(t *testing.T) {
 			},
 			expected: "UPDATE test.student SET is_graduated = true, roll_no = 50 WHERE _id = '635b79e231d82a8ab1de863b';",
 		},
+		{
+			name: "Delete Operation - empty object",
+			oplog: OplogEntry{
+				Op: "d",
+				NS: "test.student",
+				O:  map[string]interface{}{},
+			},
+			expected: "",
+		},
+		{
+			name: "Delete Operation",
+			oplog: OplogEntry{
+				Op: "d",
+				NS: "test.student",
+				O: map[string]interface{}{
+					"_id": "635b79e231d82a8ab1de863b",
+				},
+			},
+			expected: "DELETE FROM test.student WHERE _id = '635b79e231d82a8ab1de863b';",
+		},
 	}
 
 	for _, test := range tests {

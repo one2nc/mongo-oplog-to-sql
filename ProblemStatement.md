@@ -168,6 +168,35 @@ Assumptions:
 - Assume that no new column will be added via this update operation for now.
 - Assume that the table and the data exist from before (which can be done manually).
 
+## Story 3
+
+Parse the delete oplog JSON and convert that into equivalent SQL delete statement.
+
+Sample Input:
+
+```json
+{
+  "op" : "d",
+  "ns" : "test.student",
+  "o" : {
+    "_id" : "635b79e231d82a8ab1de863b"
+  }
+}
+```
+
+Expected Output:
+
+```sql
+DELETE FROM test.student WHERE _id = '635b79e231d82a8ab1de863b';
+```
+
+Assumptions:
+
+- The `d` in `op` key stands for delete.
+- The `o` key contains the `_id` of the field to be deleted
+- For simplicity, assume that the `_id` would always be the deletion criteria
+- Assume that the table exists from before (which can be done manually).
+
 ## Instructions
 
 1. You will have to create a new repo in language of your choice (Java, Go, etc)

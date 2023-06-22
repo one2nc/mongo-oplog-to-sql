@@ -1,24 +1,25 @@
 package oplog
 
 import (
+	"reflect"
 	"testing"
 )
 
 func TestGenerateSQL(t *testing.T) {
 	tests := []struct {
-		name     string
-		oplog    string
-		expected string
+		name  string
+		oplog string
+		want  []string
 	}{
 		{
-			name:     "Empty Operation",
-			oplog:    `{}`,
-			expected: "",
+			name:  "Empty Operation",
+			oplog: `{}`,
+			want:  []string{},
 		},
 		{
-			name:     "Invalid Operation",
-			oplog:    ``,
-			expected: "",
+			name:  "Invalid Operation",
+			oplog: ``,
+			want:  []string{},
 		},
 		{
 			name: "Insert Operation",
@@ -33,7 +34,10 @@ func TestGenerateSQL(t *testing.T) {
 				  "date_of_birth": "2000-01-30"
 				}
 			  }`,
-			expected: "INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
+			want: []string{
+				"CREATE SCHEMA test;",
+				"CREATE TABLE test.student(_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
+				"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);"},
 		},
 		{
 			name: "Update Operation - invalid diff oplog",
@@ -52,7 +56,7 @@ func TestGenerateSQL(t *testing.T) {
 				   "_id": "635b79e231d82a8ab1de863b"
 				}
 			 }`,
-			expected: "",
+			want: []string{},
 		},
 		{
 			name: "Update Operation - invalid diff type oplog",
@@ -71,7 +75,7 @@ func TestGenerateSQL(t *testing.T) {
 				   "_id": "635b79e231d82a8ab1de863b"
 				}
 			 }`,
-			expected: "",
+			want: []string{},
 		},
 		{
 			name: "Update Operation",
@@ -90,7 +94,7 @@ func TestGenerateSQL(t *testing.T) {
 				   "_id": "635b79e231d82a8ab1de863b"
 				}
 			 }`,
-			expected: "UPDATE test.student SET is_graduated = true WHERE _id = '635b79e231d82a8ab1de863b';",
+			want: []string{"UPDATE test.student SET is_graduated = true WHERE _id = '635b79e231d82a8ab1de863b';"},
 		},
 		{
 			name: "Update Operation - unset column",
@@ -109,7 +113,7 @@ func TestGenerateSQL(t *testing.T) {
 				   "_id": "635b79e231d82a8ab1de863b"
 				}
 			 }`,
-			expected: "UPDATE test.student SET roll_no = NULL WHERE _id = '635b79e231d82a8ab1de863b';",
+			want: []string{"UPDATE test.student SET roll_no = NULL WHERE _id = '635b79e231d82a8ab1de863b';"},
 		},
 		{
 			name: "Update Operation - update two columns",
@@ -129,7 +133,7 @@ func TestGenerateSQL(t *testing.T) {
 				   "_id": "635b79e231d82a8ab1de863b"
 				}
 			 }`,
-			expected: "UPDATE test.student SET is_graduated = true, roll_no = 50 WHERE _id = '635b79e231d82a8ab1de863b';",
+			want: []string{"UPDATE test.student SET is_graduated = true, roll_no = 50 WHERE _id = '635b79e231d82a8ab1de863b';"},
 		},
 		{
 			name: "Delete Operation - empty object",
@@ -138,7 +142,7 @@ func TestGenerateSQL(t *testing.T) {
 				"ns": "test.student",
 				"o": {}
 			  }`,
-			expected: "",
+			want: []string{},
 		},
 		{
 			name: "Delete Operation",
@@ -149,15 +153,16 @@ func TestGenerateSQL(t *testing.T) {
 				  "_id": "635b79e231d82a8ab1de863b"
 				}
 			  }`,
-			expected: "DELETE FROM test.student WHERE _id = '635b79e231d82a8ab1de863b';",
+			want: []string{"DELETE FROM test.student WHERE _id = '635b79e231d82a8ab1de863b';"},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			sql := GenerateSQL(test.oplog)
-			if sql != test.expected {
-				t.Errorf("Generated SQL does not match the expected result.\nExpected: %s\nGot: %s", test.expected, sql)
+			got := GenerateSQL(test.oplog)
+
+			if !reflect.DeepEqual(got, test.want) {
+				t.Errorf("Generated SQL does not match the expected result.\nWant: %s\nGot: %s", test.want, got)
 			}
 		})
 	}

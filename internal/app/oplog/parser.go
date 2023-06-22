@@ -14,26 +14,63 @@ type OplogEntry struct {
 	O2 map[string]interface{} `json:"o2"`
 }
 
-func GenerateSQL(oplog string) string {
+func GenerateSQL(oplog string) []string {
 	var oplogObj OplogEntry
 	if err := json.Unmarshal([]byte(oplog), &oplogObj); err != nil {
-		return ""
+		return []string{}
 	}
 
 	return generateSQL(oplogObj)
 }
 
-func generateSQL(oplog OplogEntry) string {
+func generateSQL(oplog OplogEntry) []string {
+	sqls := []string{}
 	switch oplog.Op {
 	case "i":
-		return generateInsertSQL(oplog)
+		sqls = append(sqls, generateCreateSchemaSQL(oplog.NS))
+		sqls = append(sqls, generateCreateTableSQL(oplog))
+		sqls = append(sqls, generateInsertSQL(oplog))
 	case "u":
-		return generateUpdateSQL(oplog)
+		if sql, err := generateUpdateSQL(oplog); err == nil {
+			sqls = append(sqls, sql)
+		}
 	case "d":
-		return generateDeleteSQL(oplog)
-	default:
-		return ""
+		if sql, err := generateDeleteSQL(oplog); err == nil {
+			sqls = append(sqls, sql)
+		}
 	}
+	return sqls
+}
+
+func generateCreateSchemaSQL(ns string) string {
+	nsParts := strings.Split(ns, ".")
+	return fmt.Sprintf("CREATE SCHEMA %s;", nsParts[0])
+}
+
+func generateCreateTableSQL(oplog OplogEntry) string {
+	var sb strings.Builder
+	sb.WriteString("CREATE TABLE ")
+	sb.WriteString(oplog.NS)
+	sb.WriteRune('(')
+
+	// Sort the column names of the oplog.O map to maintain the order in the insert statement
+	columnNames := make([]string, 0, len(oplog.O))
+	for columnName := range oplog.O {
+		columnNames = append(columnNames, columnName)
+	}
+	sort.Strings(columnNames)
+
+	sep := ""
+	for _, columnName := range columnNames {
+		value := oplog.O[columnName]
+		colDataType := getColumnSQLDatatype(columnName, value)
+
+		sb.WriteString(fmt.Sprintf("%s%s %s", sep, columnName, colDataType))
+		sep = ", "
+	}
+
+	sb.WriteString(");")
+	return sb.String()
 }
 
 func generateInsertSQL(oplog OplogEntry) string {
@@ -67,10 +104,10 @@ func generateInsertSQL(oplog OplogEntry) string {
 	return sb.String()
 }
 
-func generateUpdateSQL(oplog OplogEntry) string {
+func generateUpdateSQL(oplog OplogEntry) (string, error) {
 	diffMap, ok1 := oplog.O["diff"].(map[string]interface{})
 	if !ok1 {
-		return ""
+		return "", fmt.Errorf("invalid diff oplog")
 	}
 
 	var sb strings.Builder
@@ -84,19 +121,19 @@ func generateUpdateSQL(oplog OplogEntry) string {
 	} else if unSetMap, ok := diffMap["d"].(map[string]interface{}); ok {
 		setUnsetCols = unSetClause(unSetMap)
 	} else {
-		return ""
+		return "", fmt.Errorf("invalid operation in diff oplog")
 	}
 
 	sb.WriteString(setUnsetCols)
 	sb.WriteString(whereClause(oplog.O2))
 	sb.WriteString(";")
 
-	return sb.String()
+	return sb.String(), nil
 }
 
-func generateDeleteSQL(oplog OplogEntry) string {
+func generateDeleteSQL(oplog OplogEntry) (string, error) {
 	if len(oplog.O) == 0 {
-		return ""
+		return "", fmt.Errorf("invalid oplog")
 	}
 
 	var sb strings.Builder
@@ -106,7 +143,7 @@ func generateDeleteSQL(oplog OplogEntry) string {
 	sb.WriteString(whereClause(oplog.O))
 	sb.WriteString(";")
 
-	return sb.String()
+	return sb.String(), nil
 }
 
 func getColumnValue(value interface{}) string {
@@ -118,6 +155,25 @@ func getColumnValue(value interface{}) string {
 	default:
 		return fmt.Sprintf("'%v'", value)
 	}
+}
+
+func getColumnSQLDatatype(colName string, value interface{}) string {
+	var colDataType string
+	switch value.(type) {
+	case int, int8, int16, int32, int64:
+		colDataType = "INTEGER"
+	case float32, float64:
+		colDataType = "FLOAT"
+	case bool:
+		colDataType = "BOOLEAN"
+	default:
+		colDataType = "VARCHAR(255)"
+	}
+
+	if colName == "_id" {
+		colDataType = fmt.Sprintf("%s PRIMARY KEY", colDataType)
+	}
+	return colDataType
 }
 
 func setClause(cols map[string]interface{}) string {

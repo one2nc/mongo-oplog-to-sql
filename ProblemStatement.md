@@ -314,6 +314,76 @@ Expectations:
 - The input to the program has changed from a single oplog JSON to an array of oplogs. Make sure your code is able to handle both.
 - You will have to modify the code and tests written as part of Story 4.
 
+## Story 6 (alter table with multiple oplog entries)
+
+The input for this story is very similar to Story 5 above. Except, in the second oplog, there’s a new field -`phone`. Your job is to generate an `alter table`  statement and then generate an `insert into` statement for the second oplog.
+
+Thus, you’ll have to generate SQL statements in the following order:
+
+- Generate `CREATE SCHEMA` SQL statement
+- Generate `CREATE TABLE` SQL statement
+- Generate `INSERT INTO` SQL statement
+- Generate `ALTER TABLE` SQL statement
+- Generate `INSERT INTO` SQL statement
+
+Sample Input:
+
+```jsx
+[
+  {
+    "op": "i",
+    "ns": "test.student",
+    "o": {
+      "_id": "635b79e231d82a8ab1de863b",
+      "name": "Selena Miller",
+      "roll_no": 51,
+      "is_graduated": false,
+      "date_of_birth": "2000-01-30"
+    }
+  },
+  {
+    "op": "i",
+    "ns": "test.student",
+    "o": {
+      "_id": "14798c213f273a7ca2cf5174",
+      "name": "George Smith",
+      "roll_no": 21,
+      "is_graduated": true,
+      "date_of_birth": "2001-03-23",
+      "phone": "+91-81254966457"
+    }
+  }
+]
+```
+
+Expected Output: 
+
+```jsx
+CREATE SCHEMA test;
+
+CREATE TABLE test.student
+  (
+     _id           VARCHAR(255) PRIMARY KEY,
+     date_of_birth VARCHAR(255),
+     is_graduated  BOOLEAN,
+     name          VARCHAR(255),
+     roll_no       FLOAT
+  );
+
+INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51.0);
+
+ALTER TABLE test.student ADD COLUMN phone VARCHAR(255);
+
+INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no, phone) VALUES ('14798c213f273a7ca2cf5174', '2001-03-23', true, 'George Smith', 21.0, '+91-81254966457');
+```
+
+Expectation:
+
+- You will have to modify the code and tests written as part of Story 5.
+- Your code should also handle case of more than two oplogs for the same collection.
+- Your program should assign null values to columns for which the JSON fields are missing.
+- Currently, in the sample input, we are only considering an addition of one field (phone). However, your program should handle addition of any number of new fields and generate those many number of `alter table` statements.
+
 ## Instructions
 
 1. You will have to create a new repo in language of your choice (Java, Go, etc)

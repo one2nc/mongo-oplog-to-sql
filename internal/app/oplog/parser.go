@@ -1,6 +1,7 @@
 package oplog
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -13,7 +14,16 @@ type OplogEntry struct {
 	O2 map[string]interface{} `json:"o2"`
 }
 
-func GenerateSQL(oplog OplogEntry) string {
+func GenerateSQL(oplog string) string {
+	var oplogObj OplogEntry
+	if err := json.Unmarshal([]byte(oplog), &oplogObj); err != nil {
+		return ""
+	}
+
+	return generateSQL(oplogObj)
+}
+
+func generateSQL(oplog OplogEntry) string {
 	switch oplog.Op {
 	case "i":
 		return generateInsertSQL(oplog)

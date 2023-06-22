@@ -10,19 +10,26 @@ type OplogEntry struct {
 	Op string                 `json:"op"`
 	NS string                 `json:"ns"`
 	O  map[string]interface{} `json:"o"`
+	O2 map[string]interface{} `json:"o2"`
 }
 
 func GenerateSQL(oplog OplogEntry) string {
 	switch oplog.Op {
 	case "i":
 		return generateInsertSQL(oplog)
+	case "u":
+		return generateUpdateSQL(oplog)
 	default:
 		return ""
 	}
 }
 
 func generateInsertSQL(oplog OplogEntry) string {
-	sql := fmt.Sprintf("INSERT INTO %s ", oplog.NS)
+	var sb strings.Builder
+	sb.WriteString("INSERT INTO ")
+	sb.WriteString(oplog.NS)
+	sb.WriteString(" ")
+
 	columns := make([]string, 0)
 	values := make([]string, 0)
 
@@ -40,8 +47,39 @@ func generateInsertSQL(oplog OplogEntry) string {
 		values = append(values, getColumnValue(value))
 	}
 
-	sql += fmt.Sprintf("(%s) VALUES (%s);", strings.Join(columns, ", "), strings.Join(values, ", "))
-	return sql
+	sb.WriteString(fmt.Sprintf("(%s)", strings.Join(columns, ", ")))
+	sb.WriteString(" VALUES ")
+	sb.WriteString(fmt.Sprintf("(%s)", strings.Join(values, ", ")))
+	sb.WriteString(";")
+
+	return sb.String()
+}
+
+func generateUpdateSQL(oplog OplogEntry) string {
+	var sb strings.Builder
+	sb.WriteString("UPDATE ")
+	sb.WriteString(oplog.NS)
+	sb.WriteString(" SET ")
+
+	diffMap, ok1 := oplog.O["diff"].(map[string]interface{})
+	if !ok1 {
+		return ""
+	}
+
+	var setUnsetCols string
+	if setMap, ok := diffMap["u"].(map[string]interface{}); ok {
+		setUnsetCols = setClause(setMap)
+	} else if unSetMap, ok := diffMap["d"].(map[string]interface{}); ok {
+		setUnsetCols = unSetClause(unSetMap)
+	} else {
+		return ""
+	}
+
+	sb.WriteString(setUnsetCols)
+	sb.WriteString(whereClause(oplog.O2))
+	sb.WriteString(";")
+
+	return sb.String()
 }
 
 func getColumnValue(value interface{}) string {
@@ -53,4 +91,52 @@ func getColumnValue(value interface{}) string {
 	default:
 		return fmt.Sprintf("'%v'", value)
 	}
+}
+
+func setClause(cols map[string]interface{}) string {
+	// Sort the column names of the oplog.O map to maintain the order in the update statement
+	columnNames := sortColumns(cols)
+
+	columns := make([]string, 0)
+	for _, columnName := range columnNames {
+		value := cols[columnName]
+		columns = append(columns, fmt.Sprintf("%s = %s", columnName, getColumnValue(value)))
+	}
+	return strings.Join(columns, ", ")
+}
+
+func unSetClause(cols map[string]interface{}) string {
+	// Sort the column names of the oplog.O map to maintain the order in the update statement
+	columnNames := sortColumns(cols)
+
+	columns := make([]string, 0)
+	for _, columnName := range columnNames {
+		columns = append(columns, fmt.Sprintf("%s = NULL", columnName))
+	}
+	return strings.Join(columns, ", ")
+}
+
+func whereClause(cols map[string]interface{}) string {
+	var sb strings.Builder
+	sb.WriteString(" WHERE ")
+	// Sort the column names of the oplog.O map to maintain the order in the where clause
+	columnNames := sortColumns(cols)
+
+	columns := make([]string, 0)
+	for _, columnName := range columnNames {
+		value := cols[columnName]
+		columns = append(columns, fmt.Sprintf("%s = %s", columnName, getColumnValue(value)))
+	}
+
+	sb.WriteString(strings.Join(columns, " AND "))
+	return sb.String()
+}
+
+func sortColumns(cols map[string]interface{}) []string {
+	columnNames := make([]string, 0)
+	for columnName := range cols {
+		columnNames = append(columnNames, columnName)
+	}
+	sort.Strings(columnNames)
+	return columnNames
 }

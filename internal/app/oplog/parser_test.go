@@ -30,6 +30,102 @@ func TestGenerateSQL(t *testing.T) {
 			},
 			expected: "INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
 		},
+		{
+			name: "Update Operation - invalid diff oplog",
+			oplog: OplogEntry{
+				Op: "u",
+				NS: "test.student",
+				O: map[string]interface{}{
+					"$v": 2,
+					"invaliddiff": map[string]interface{}{
+						"u": map[string]interface{}{
+							"is_graduated": true,
+						},
+					},
+				},
+				O2: map[string]interface{}{
+					"_id": "635b79e231d82a8ab1de863b",
+				},
+			},
+			expected: "",
+		},
+		{
+			name: "Update Operation - invalid diff type oplog",
+			oplog: OplogEntry{
+				Op: "u",
+				NS: "test.student",
+				O: map[string]interface{}{
+					"$v": 2,
+					"diff": map[string]interface{}{
+						"invalid": map[string]interface{}{
+							"is_graduated": true,
+						},
+					},
+				},
+				O2: map[string]interface{}{
+					"_id": "635b79e231d82a8ab1de863b",
+				},
+			},
+			expected: "",
+		},
+		{
+			name: "Update Operation",
+			oplog: OplogEntry{
+				Op: "u",
+				NS: "test.student",
+				O: map[string]interface{}{
+					"$v": 2,
+					"diff": map[string]interface{}{
+						"u": map[string]interface{}{
+							"is_graduated": true,
+						},
+					},
+				},
+				O2: map[string]interface{}{
+					"_id": "635b79e231d82a8ab1de863b",
+				},
+			},
+			expected: "UPDATE test.student SET is_graduated = true WHERE _id = '635b79e231d82a8ab1de863b';",
+		},
+		{
+			name: "Update Operation - unset column",
+			oplog: OplogEntry{
+				Op: "u",
+				NS: "test.student",
+				O: map[string]interface{}{
+					"$v": 2,
+					"diff": map[string]interface{}{
+						"d": map[string]interface{}{
+							"roll_no": false,
+						},
+					},
+				},
+				O2: map[string]interface{}{
+					"_id": "635b79e231d82a8ab1de863b",
+				},
+			},
+			expected: "UPDATE test.student SET roll_no = NULL WHERE _id = '635b79e231d82a8ab1de863b';",
+		},
+		{
+			name: "Update Operation - update two columns",
+			oplog: OplogEntry{
+				Op: "u",
+				NS: "test.student",
+				O: map[string]interface{}{
+					"$v": 2,
+					"diff": map[string]interface{}{
+						"u": map[string]interface{}{
+							"roll_no":      50,
+							"is_graduated": true,
+						},
+					},
+				},
+				O2: map[string]interface{}{
+					"_id": "635b79e231d82a8ab1de863b",
+				},
+			},
+			expected: "UPDATE test.student SET is_graduated = true, roll_no = 50 WHERE _id = '635b79e231d82a8ab1de863b';",
+		},
 	}
 
 	for _, test := range tests {

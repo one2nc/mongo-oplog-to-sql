@@ -1,4 +1,4 @@
-package oplog
+package service
 
 import (
 	"reflect"
@@ -258,7 +258,8 @@ func TestGenerateSQL(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := GenerateSQL(test.oplog)
+			oplogService := NewOplogService()
+			got := oplogService.GenerateSQL(test.oplog)
 
 			if !reflect.DeepEqual(got, test.want) {
 				t.Errorf("Generated SQL does not match the expected result.\nWant: %s\nGot: %s", test.want, got)

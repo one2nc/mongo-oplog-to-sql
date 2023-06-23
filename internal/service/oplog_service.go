@@ -1,24 +1,30 @@
-package oplog
+package service
 
 import (
 	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/one2nc/mongo-oplog-to-sql/internal/domain"
 )
 
-type OplogEntry struct {
-	Operation string                 `json:"op"`
-	Namespace string                 `json:"ns"`
-	Object    map[string]interface{} `json:"o"`
-	Object2   map[string]interface{} `json:"o2"`
+type OplogService interface {
+	GenerateSQL(oplog string) []string
 }
 
-func GenerateSQL(oplogString string) []string {
-	var oplogEntries []OplogEntry
+type oplogService struct {
+}
+
+func NewOplogService() OplogService {
+	return &oplogService{}
+}
+
+func (s *oplogService) GenerateSQL(oplogString string) []string {
+	var oplogEntries []domain.OplogEntry
 	err := json.Unmarshal([]byte(oplogString), &oplogEntries)
 	if err != nil {
-		var oplogEntry OplogEntry
+		var oplogEntry domain.OplogEntry
 		err := json.Unmarshal([]byte(oplogString), &oplogEntry)
 		if err != nil {
 			return []string{}
@@ -29,7 +35,7 @@ func GenerateSQL(oplogString string) []string {
 	cacheMap := make(map[string]bool)
 	sqlStatements := make([]string, 0)
 	for _, entry := range oplogEntries {
-		sqls, err := generateSQLStatements(entry, cacheMap)
+		sqls, err := s.generateSQL(entry, cacheMap)
 		if err != nil {
 			break
 		}
@@ -39,7 +45,7 @@ func GenerateSQL(oplogString string) []string {
 	return sqlStatements
 }
 
-func generateSQLStatements(entry OplogEntry, cacheMap map[string]bool) ([]string, error) {
+func (s *oplogService) generateSQL(entry domain.OplogEntry, cacheMap map[string]bool) ([]string, error) {
 	sqlStatements := []string{}
 	switch entry.Operation {
 	case "i":
@@ -79,7 +85,7 @@ func generateCreateSchemaSQL(schemaName string) string {
 	return fmt.Sprintf("CREATE SCHEMA %s;", schemaName)
 }
 
-func generateCreateTableSQL(entry OplogEntry, cacheMap map[string]bool) string {
+func generateCreateTableSQL(entry domain.OplogEntry, cacheMap map[string]bool) string {
 	var sb strings.Builder
 	sb.WriteString("CREATE TABLE ")
 	sb.WriteString(entry.Namespace)
@@ -107,7 +113,7 @@ func generateCreateTableSQL(entry OplogEntry, cacheMap map[string]bool) string {
 	return sb.String()
 }
 
-func isEligibleForAlterTable(entry OplogEntry, cacheMap map[string]bool) bool {
+func isEligibleForAlterTable(entry domain.OplogEntry, cacheMap map[string]bool) bool {
 	for columnName := range entry.Object {
 		value := entry.Object[columnName]
 		columnDataType := getColumnSQLDataType(columnName, value)
@@ -120,7 +126,7 @@ func isEligibleForAlterTable(entry OplogEntry, cacheMap map[string]bool) bool {
 	return false
 }
 
-func generateAlterTableSQL(entry OplogEntry, cacheMap map[string]bool) string {
+func generateAlterTableSQL(entry domain.OplogEntry, cacheMap map[string]bool) string {
 	var sb strings.Builder
 	sb.WriteString("ALTER TABLE ")
 	sb.WriteString(entry.Namespace)
@@ -141,7 +147,7 @@ func generateAlterTableSQL(entry OplogEntry, cacheMap map[string]bool) string {
 	return sb.String()
 }
 
-func generateInsertSQL(entry OplogEntry) string {
+func generateInsertSQL(entry domain.OplogEntry) string {
 	var sb strings.Builder
 	sb.WriteString("INSERT INTO ")
 	sb.WriteString(entry.Namespace)
@@ -166,7 +172,7 @@ func generateInsertSQL(entry OplogEntry) string {
 	return sb.String()
 }
 
-func generateUpdateSQL(entry OplogEntry) (string, error) {
+func generateUpdateSQL(entry domain.OplogEntry) (string, error) {
 	diffMap, ok := entry.Object["diff"].(map[string]interface{})
 	if !ok {
 		return "", fmt.Errorf("invalid diff oplog")
@@ -193,7 +199,7 @@ func generateUpdateSQL(entry OplogEntry) (string, error) {
 	return sb.String(), nil
 }
 
-func generateDeleteSQL(entry OplogEntry) (string, error) {
+func generateDeleteSQL(entry domain.OplogEntry) (string, error) {
 	if len(entry.Object) == 0 {
 		return "", fmt.Errorf("invalid oplog")
 	}

@@ -462,6 +462,22 @@ Expectations:
 - The SQL should be generated such that it can be run on any relational DB without any modifications. For example, note the order of `create table` above. We generate the phone table first, and then the employees table. The phone table has reference to the employee table using `employee__id` column.
 - For simplicity, for a single nested object (e.g. phone), always generate a 1:M relationship. Note that the phone table has a foreign key reference to employee table using employee__id.
 
+## Story 8 (reading oplogs from a file)
+
+In the above stories, we have parsed different types of MongoDB oplogs and generated equivalent SQL statements. Now, we have to read multiple oplogs from a JSON file containing MongoDB oplogs and convert them into equivalent SQL statement. You can use the [example-input.json](https://github.com/one2nc/mongo-oplog-to-sql/blob/main/example-input.json) file as the input file. 
+
+Write the generated SQL statements in a file giving the file name as `output.sql` . You can compare your output file with [example-output.sql](https://github.com/one2nc/mongo-oplog-to-sql/blob/main/example-output.sql). 
+
+Assumptions:
+
+- Take the file name which will contain MongoDB oplogs as an input in the argument.
+- Also, give the file name of output file as argument in which we are going to store the generated SQL statements.
+
+Expectations:
+
+- Make sure while reading the file we process one oplog at a time. This will be helpful to you in further story where you would be getting data infinitely in stream.
+- You are expected to write the generated SQL statements in a file. You can compare your output file with our [example-output.sql](https://github.com/one2nc/mongo-oplog-to-sql/blob/main/example-output.sql).
+
 ## Instructions
 
 1. You will have to create a new repo in language of your choice (Java, Go, etc)

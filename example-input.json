@@ -1,0 +1,797 @@
+[
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "student.students",
+        "o": {
+            "_id": "64798c213f273a7ca2cf516a",
+            "age": 25,
+            "name": "Nathan Lindgren",
+            "subject": "Maths"
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf516a"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 2
+        },
+        "txnNumber": 1,
+        "ui": {
+            "Subtype": 4,
+            "Data": "Vn3IRssuTqmZgBMWQ47Olg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.457+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "student.students",
+        "o": {
+            "_id": "64798c213f273a7ca2cf516b",
+            "age": 18,
+            "name": "Meggie Hoppe",
+            "subject": "English"
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf516b"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 3
+        },
+        "txnNumber": 2,
+        "ui": {
+            "Subtype": 4,
+            "Data": "Vn3IRssuTqmZgBMWQ47Olg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.478+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "employee.employees",
+        "o": {
+            "_id": "64798c213f273a7ca2cf516c",
+            "address": [
+                {
+                    "line1": "32550 Port Gatewaytown",
+                    "zip": "18399"
+                },
+                {
+                    "line1": "3840 Cornermouth",
+                    "zip": "83941"
+                }
+            ],
+            "age": 35,
+            "name": "Raymond Monahan",
+            "phone": {
+                "personal": "8764255212",
+                "work": "2762135091"
+            },
+            "position": "Engineer",
+            "salary": 3767.925634753098
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf516c"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 5
+        },
+        "txnNumber": 3,
+        "ui": {
+            "Subtype": 4,
+            "Data": "R+ti5mC7TyOGvdPIAhOlBg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.504+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "student.students",
+        "o": {
+            "_id": "64798c213f273a7ca2cf516a"
+        },
+        "op": "d",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 6
+        },
+        "txnNumber": 4,
+        "ui": {
+            "Subtype": 4,
+            "Data": "Vn3IRssuTqmZgBMWQ47Olg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.533+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "student.students",
+        "o": {
+            "_id": "64798c213f273a7ca2cf516d",
+            "age": 19,
+            "name": "Tevin Heathcote",
+            "subject": "English"
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf516d"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 7
+        },
+        "txnNumber": 5,
+        "ui": {
+            "Subtype": 4,
+            "Data": "Vn3IRssuTqmZgBMWQ47Olg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.537+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "employee.employees",
+        "o": {
+            "_id": "64798c213f273a7ca2cf516e",
+            "address": [
+                {
+                    "line1": "481 Harborsburgh",
+                    "zip": "89799"
+                },
+                {
+                    "line1": "329 Flatside",
+                    "zip": "80872"
+                }
+            ],
+            "age": 37,
+            "name": "Wilson Gleason",
+            "phone": {
+                "personal": "7678456640",
+                "work": "8130097989"
+            },
+            "position": "Manager",
+            "salary": 5042.121824095532
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf516e"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 8
+        },
+        "txnNumber": 6,
+        "ui": {
+            "Subtype": 4,
+            "Data": "R+ti5mC7TyOGvdPIAhOlBg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.543+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "employee.employees",
+        "o": {
+            "_id": "64798c213f273a7ca2cf516f",
+            "address": [
+                {
+                    "line1": "96400 Landhaven",
+                    "zip": "41638"
+                },
+                {
+                    "line1": "3939 Lightburgh",
+                    "zip": "99747"
+                }
+            ],
+            "age": 31,
+            "name": "Linwood Wilkinson",
+            "phone": {
+                "personal": "1075027422",
+                "work": "1641587035"
+            },
+            "position": "Manager",
+            "salary": 4514.763474407185
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf516f"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 9
+        },
+        "txnNumber": 7,
+        "ui": {
+            "Subtype": 4,
+            "Data": "R+ti5mC7TyOGvdPIAhOlBg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.547+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "student.students",
+        "o": {
+            "_id": "64798c213f273a7ca2cf5170",
+            "age": 18,
+            "name": "Camren Thompson",
+            "subject": "Science"
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf5170"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 10
+        },
+        "txnNumber": 8,
+        "ui": {
+            "Subtype": 4,
+            "Data": "Vn3IRssuTqmZgBMWQ47Olg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.55+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "employee.employees",
+        "o": {
+            "_id": "64798c213f273a7ca2cf5171",
+            "address": [
+                {
+                    "line1": "51338 Landingbury",
+                    "zip": "74795"
+                },
+                {
+                    "line1": "79033 West Locksmouth",
+                    "zip": "43555"
+                }
+            ],
+            "age": 31,
+            "name": "Meaghan Hettinger",
+            "phone": {
+                "personal": "4613562303",
+                "work": "1889316722"
+            },
+            "position": "Engineer",
+            "salary": 6676.956103628756
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf5171"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 11
+        },
+        "txnNumber": 9,
+        "ui": {
+            "Subtype": 4,
+            "Data": "R+ti5mC7TyOGvdPIAhOlBg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.554+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "employee.employees",
+        "o": {
+            "$v": 2,
+            "diff": {
+                "u": {
+                    "Age": 23
+                }
+            }
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf5171"
+        },
+        "op": "u",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 12
+        },
+        "txnNumber": 10,
+        "ui": {
+            "Subtype": 4,
+            "Data": "R+ti5mC7TyOGvdPIAhOlBg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.559+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "employee.employees",
+        "o": {
+            "_id": "64798c213f273a7ca2cf5172",
+            "address": [
+                {
+                    "line1": "2787 Trackview",
+                    "zip": "23598"
+                },
+                {
+                    "line1": "33659 South Mountainchester",
+                    "zip": "45086"
+                }
+            ],
+            "age": 20,
+            "name": "Delta Bahringer",
+            "phone": {
+                "personal": "9829848796",
+                "work": "5636590993"
+            },
+            "position": "Developer",
+            "salary": 2980.1271103167737,
+            "workhours": 6
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf5172"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 13
+        },
+        "txnNumber": 11,
+        "ui": {
+            "Subtype": 4,
+            "Data": "R+ti5mC7TyOGvdPIAhOlBg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.565+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "student.students",
+        "o": {
+            "_id": "64798c213f273a7ca2cf5173",
+            "age": 20,
+            "is_graduated": false,
+            "name": "Freda Dare",
+            "subject": "Maths"
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf5173"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 14
+        },
+        "txnNumber": 12,
+        "ui": {
+            "Subtype": 4,
+            "Data": "Vn3IRssuTqmZgBMWQ47Olg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.568+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "student.students",
+        "o": {
+            "_id": "64798c213f273a7ca2cf5174",
+            "age": 23,
+            "is_graduated": true,
+            "name": "Kamille Jast",
+            "subject": "Maths"
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf5174"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 15
+        },
+        "txnNumber": 13,
+        "ui": {
+            "Subtype": 4,
+            "Data": "Vn3IRssuTqmZgBMWQ47Olg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.572+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "student.students",
+        "o": {
+            "_id": "64798c213f273a7ca2cf5175",
+            "age": 19,
+            "is_graduated": false,
+            "name": "Arden Kessler",
+            "subject": "Social Studies"
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf5175"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 16
+        },
+        "txnNumber": 14,
+        "ui": {
+            "Subtype": 4,
+            "Data": "Vn3IRssuTqmZgBMWQ47Olg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.577+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "employee.employees",
+        "o": {
+            "_id": "64798c213f273a7ca2cf5176",
+            "address": [
+                {
+                    "line1": "403 Walksfurt",
+                    "zip": "75756"
+                },
+                {
+                    "line1": "5012 Port Branchberg",
+                    "zip": "21969"
+                }
+            ],
+            "age": 29,
+            "name": "Chyna Kihn",
+            "phone": {
+                "personal": "1748534264",
+                "work": "2515301788"
+            },
+            "position": "Salesman",
+            "salary": 6322.655857670963,
+            "workhours": 4
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf5176"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 17
+        },
+        "txnNumber": 15,
+        "ui": {
+            "Subtype": 4,
+            "Data": "R+ti5mC7TyOGvdPIAhOlBg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.581+05:30"
+    },
+    {
+        "lsid": {
+            "id": {
+                "Subtype": 4,
+                "Data": "Pd3SzDbdTAe8wR86M1x0Pw=="
+            },
+            "uid": {
+                "Subtype": 0,
+                "Data": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+            }
+        },
+        "ns": "employee.employees",
+        "o": {
+            "_id": "64798c213f273a7ca2cf5177",
+            "address": [
+                {
+                    "line1": "73628 Port Knollchester",
+                    "zip": "97436"
+                },
+                {
+                    "line1": "93072 Lake Skywayhaven",
+                    "zip": "87218"
+                }
+            ],
+            "age": 38,
+            "name": "Madie Klein",
+            "phone": {
+                "personal": "1498807115",
+                "work": "9172896730"
+            },
+            "position": "Engineer",
+            "salary": 9811.365188057007,
+            "workhours": 5
+        },
+        "o2": {
+            "_id": "64798c213f273a7ca2cf5177"
+        },
+        "op": "i",
+        "prevOpTime": {
+            "t": -1,
+            "ts": {
+                "T": 0,
+                "I": 0
+            }
+        },
+        "stmtId": 0,
+        "t": 1,
+        "ts": {
+            "T": 1685687329,
+            "I": 18
+        },
+        "txnNumber": 16,
+        "ui": {
+            "Subtype": 4,
+            "Data": "R+ti5mC7TyOGvdPIAhOlBg=="
+        },
+        "v": 2,
+        "wall": "2023-06-02T11:58:49.586+05:30"
+    }
+]

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -12,18 +13,60 @@ import (
 
 type OplogService interface {
 	GenerateSQL(oplog string) []string
+	ProcessOplogs(oplogChan <-chan domain.OplogEntry, cancel context.CancelFunc) <-chan string
 }
 
 type oplogService struct {
+	ctx context.Context
+
 	cacheMap      map[string]bool
 	uuidGenerator domain.UUIDGenerator
 }
 
-func NewOplogService(uuidGenerator domain.UUIDGenerator) OplogService {
+func NewOplogService(ctx context.Context, uuidGenerator domain.UUIDGenerator) OplogService {
 	return &oplogService{
+		ctx:           ctx,
 		cacheMap:      make(map[string]bool),
 		uuidGenerator: uuidGenerator,
 	}
+}
+
+func (s *oplogService) ProcessOplogs(
+	oplogChan <-chan domain.OplogEntry,
+	cancel context.CancelFunc,
+) <-chan string {
+	sqlChan := make(chan string)
+
+	go func() {
+
+	forLoop:
+		for entry := range oplogChan {
+			// Check if the context is done
+			select {
+			case <-s.ctx.Done():
+				// The context is done, stop reading Oplogs
+				break forLoop
+			default:
+				// Context is still active, continue reading Oplogs
+			}
+
+			sqls, err := s.generateSQL(entry)
+			if err != nil {
+				break
+			}
+
+			for _, sql := range sqls {
+				sqlChan <- sql
+			}
+		}
+
+		// Close the out channel after all values are processed
+		close(sqlChan)
+
+		cancel()
+	}()
+
+	return sqlChan
 }
 
 func (s *oplogService) GenerateSQL(oplogString string) []string {
@@ -61,7 +104,9 @@ func (s *oplogService) generateSQL(entry domain.OplogEntry) ([]string, error) {
 			sqlStatements = append(sqlStatements, generateCreateSchemaSQL(schemaName))
 		}
 
-		sqlStatements = append(sqlStatements, s.generateCreateAlterAndInsertSQL(entry.Namespace, domain.Column{}, entry.Object)...)
+		sqlStatements = append(
+			sqlStatements,
+			s.generateCreateAlterAndInsertSQL(entry.Namespace, domain.Column{}, entry.Object)...)
 	case "u":
 		if sql, err := generateUpdateSQL(entry); err == nil {
 			sqlStatements = append(sqlStatements, sql)
@@ -79,13 +124,20 @@ func (s *oplogService) generateSQL(entry domain.OplogEntry) ([]string, error) {
 	return sqlStatements, nil
 }
 
-func (s *oplogService) generateCreateAlterAndInsertSQL(namespace string, foreignColumn domain.Column, data map[string]interface{}) []string {
+func (s *oplogService) generateCreateAlterAndInsertSQL(
+	namespace string,
+	foreignColumn domain.Column,
+	data map[string]interface{},
+) []string {
 	sqlStatements := []string{}
 
 	// create schema if not exists
 	if !s.cacheMap[namespace] {
 		s.cacheMap[namespace] = true
-		sqlStatements = append(sqlStatements, s.generateCreateTableSQL(namespace, foreignColumn, data))
+		sqlStatements = append(
+			sqlStatements,
+			s.generateCreateTableSQL(namespace, foreignColumn, data),
+		)
 	} else if s.isEligibleForAlterTable(namespace, data) { // alter table if applicable
 		sqlStatements = append(sqlStatements, s.generateAlterTableSQL(namespace, data))
 	}
@@ -115,7 +167,9 @@ func (s *oplogService) generateCreateAlterAndInsertSQL(namespace string, foreign
 				Value: data["_id"],
 			}
 
-			sqlStatements = append(sqlStatements, s.generateSQLForNestedObject(schema, foreignTableName, foreignColumn, value)...)
+			sqlStatements = append(
+				sqlStatements,
+				s.generateSQLForNestedObject(schema, foreignTableName, foreignColumn, value)...)
 		default:
 			continue
 		}
@@ -128,11 +182,15 @@ func generateCreateSchemaSQL(schemaName string) string {
 	return fmt.Sprintf("CREATE SCHEMA %s;", schemaName)
 }
 
-func (s *oplogService) generateCreateTableSQL(tableName string, foreignColumn domain.Column, data map[string]interface{}) string {
+func (s *oplogService) generateCreateTableSQL(
+	tableName string,
+	foreignColumn domain.Column,
+	data map[string]interface{},
+) string {
 	var sb strings.Builder
 	sb.WriteString("CREATE TABLE ")
 	sb.WriteString(tableName)
-	sb.WriteString("(")
+	sb.WriteString(" (")
 
 	columnNames := sortColumns(data)
 
@@ -189,7 +247,11 @@ func createColumn(tableName, sep string, column domain.Column, cacheMap map[stri
 	return fmt.Sprintf("%s%s %s", sep, column.Name, column.DataType())
 }
 
-func (s *oplogService) generateSQLForNestedObject(schema, tableName string, foreignColumn domain.Column, value interface{}) []string {
+func (s *oplogService) generateSQLForNestedObject(
+	schema, tableName string,
+	foreignColumn domain.Column,
+	value interface{},
+) []string {
 	namespace := fmt.Sprintf("%s.%s", schema, tableName)
 
 	switch reflect.TypeOf(value).Kind() {
@@ -212,12 +274,20 @@ func (s *oplogService) generateSQLForNestedObject(schema, tableName string, fore
 
 func (s *oplogService) isEligibleForAlterTable(namespace string, data map[string]interface{}) bool {
 	for columnName, value := range data {
-		column := domain.Column{Name: columnName, Value: value}
-		columnDataType := column.DataType()
+		// skip nested objects or arrays of objects
+		skip := false
+		switch reflect.TypeOf(value).Kind() {
+		case reflect.Slice, reflect.Map:
+			skip = true
+		}
+		if !skip {
+			column := domain.Column{Name: columnName, Value: value}
+			columnDataType := column.DataType()
 
-		cacheKey := fmt.Sprintf("%s.%s.%s", namespace, columnName, columnDataType)
-		if !s.cacheMap[cacheKey] {
-			return true
+			cacheKey := fmt.Sprintf("%s.%s.%s", namespace, columnName, columnDataType)
+			if !s.cacheMap[cacheKey] {
+				return true
+			}
 		}
 	}
 	return false

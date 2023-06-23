@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"reflect"
 	"testing"
 )
@@ -44,7 +45,7 @@ func TestGenerateSQL(t *testing.T) {
 			  }`,
 			want: []string{
 				"CREATE SCHEMA test;",
-				"CREATE TABLE test.student(_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
+				"CREATE TABLE test.student (_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
 				"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);"},
 		},
 		{
@@ -102,7 +103,9 @@ func TestGenerateSQL(t *testing.T) {
 				   "_id": "635b79e231d82a8ab1de863b"
 				}
 			 }`,
-			want: []string{"UPDATE test.student SET is_graduated = true WHERE _id = '635b79e231d82a8ab1de863b';"},
+			want: []string{
+				"UPDATE test.student SET is_graduated = true WHERE _id = '635b79e231d82a8ab1de863b';",
+			},
 		},
 		{
 			name: "Update Operation - unset column",
@@ -121,7 +124,9 @@ func TestGenerateSQL(t *testing.T) {
 				   "_id": "635b79e231d82a8ab1de863b"
 				}
 			 }`,
-			want: []string{"UPDATE test.student SET roll_no = NULL WHERE _id = '635b79e231d82a8ab1de863b';"},
+			want: []string{
+				"UPDATE test.student SET roll_no = NULL WHERE _id = '635b79e231d82a8ab1de863b';",
+			},
 		},
 		{
 			name: "Update Operation - update two columns",
@@ -141,7 +146,9 @@ func TestGenerateSQL(t *testing.T) {
 				   "_id": "635b79e231d82a8ab1de863b"
 				}
 			 }`,
-			want: []string{"UPDATE test.student SET is_graduated = true, roll_no = 50 WHERE _id = '635b79e231d82a8ab1de863b';"},
+			want: []string{
+				"UPDATE test.student SET is_graduated = true, roll_no = 50 WHERE _id = '635b79e231d82a8ab1de863b';",
+			},
 		},
 		{
 			name: "Delete Operation - empty object",
@@ -191,7 +198,7 @@ func TestGenerateSQL(t *testing.T) {
 			  ]`,
 			want: []string{
 				"CREATE SCHEMA test;",
-				"CREATE TABLE test.student(_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
+				"CREATE TABLE test.student (_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
 				"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
 				"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('14798c213f273a7ca2cf5174', '2001-03-23', true, 'George Smith', 21);"},
 		},
@@ -223,9 +230,9 @@ func TestGenerateSQL(t *testing.T) {
 			  ]`,
 			want: []string{
 				"CREATE SCHEMA test;",
-				"CREATE TABLE test.student(_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
+				"CREATE TABLE test.student (_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
 				"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
-				"CREATE TABLE test.employee(_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), salary FLOAT);",
+				"CREATE TABLE test.employee (_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), salary FLOAT);",
 				"INSERT INTO test.employee (_id, date_of_birth, is_graduated, name, salary) VALUES ('14798c213f273a7ca2cf5174', '2001-03-23', true, 'George Smith', 10000);"},
 		},
 		{
@@ -257,7 +264,7 @@ func TestGenerateSQL(t *testing.T) {
 			  ]`,
 			want: []string{
 				"CREATE SCHEMA test;",
-				"CREATE TABLE test.student(_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
+				"CREATE TABLE test.student (_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
 				"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
 				"ALTER TABLE test.student ADD COLUMN phone VARCHAR(255);",
 				"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, phone, roll_no) VALUES ('14798c213f273a7ca2cf5174', '2001-03-23', true, 'George Smith', '+91-81254966457', 21);"},
@@ -291,12 +298,12 @@ func TestGenerateSQL(t *testing.T) {
 			  }`,
 			want: []string{
 				"CREATE SCHEMA test;",
-				"CREATE TABLE test.student(_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
+				"CREATE TABLE test.student (_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
 				"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
-				"CREATE TABLE test.address(_id VARCHAR(255) PRIMARY KEY, student__id VARCHAR(255), line1 VARCHAR(255), zip VARCHAR(255));",
+				"CREATE TABLE test.address (_id VARCHAR(255) PRIMARY KEY, student__id VARCHAR(255), line1 VARCHAR(255), zip VARCHAR(255));",
 				"INSERT INTO test.address (_id, line1, student__id, zip) VALUES ('stubbed-id', '481 Harborsburgh', '635b79e231d82a8ab1de863b', '89799');",
 				"INSERT INTO test.address (_id, line1, student__id, zip) VALUES ('stubbed-id', '329 Flatside', '635b79e231d82a8ab1de863b', '80872');",
-				"CREATE TABLE test.phone(_id VARCHAR(255) PRIMARY KEY, student__id VARCHAR(255), personal VARCHAR(255), work VARCHAR(255));",
+				"CREATE TABLE test.phone (_id VARCHAR(255) PRIMARY KEY, student__id VARCHAR(255), personal VARCHAR(255), work VARCHAR(255));",
 				"INSERT INTO test.phone (_id, personal, student__id, work) VALUES ('stubbed-id', '7678456640', '635b79e231d82a8ab1de863b', '8130097989');",
 			},
 		},
@@ -332,14 +339,14 @@ func TestGenerateSQL(t *testing.T) {
 			  }`,
 			want: []string{
 				"CREATE SCHEMA test;",
-				"CREATE TABLE test.student(_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
+				"CREATE TABLE test.student (_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
 				"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
-				"CREATE TABLE test.address(_id VARCHAR(255) PRIMARY KEY, student__id VARCHAR(255), line1 VARCHAR(255), zip VARCHAR(255));",
+				"CREATE TABLE test.address (_id VARCHAR(255) PRIMARY KEY, student__id VARCHAR(255), line1 VARCHAR(255), zip VARCHAR(255));",
 				"INSERT INTO test.address (_id, line1, student__id, zip) VALUES ('stubbed-id', '481 Harborsburgh', '635b79e231d82a8ab1de863b', '89799');",
 				"INSERT INTO test.address (_id, line1, student__id, zip) VALUES ('stubbed-id', '329 Flatside', '635b79e231d82a8ab1de863b', '80872');",
-				"CREATE TABLE test.phone(_id VARCHAR(255) PRIMARY KEY, student__id VARCHAR(255));",
+				"CREATE TABLE test.phone (_id VARCHAR(255) PRIMARY KEY, student__id VARCHAR(255));",
 				"INSERT INTO test.phone (_id, student__id) VALUES ('stubbed-id', '635b79e231d82a8ab1de863b');",
-				"CREATE TABLE test.phone_number(_id VARCHAR(255) PRIMARY KEY, phone__id VARCHAR(255), country_code VARCHAR(255), number VARCHAR(255), type VARCHAR(255));",
+				"CREATE TABLE test.phone_number (_id VARCHAR(255) PRIMARY KEY, phone__id VARCHAR(255), country_code VARCHAR(255), number VARCHAR(255), type VARCHAR(255));",
 				"INSERT INTO test.phone_number (_id, country_code, number, phone__id, type) VALUES ('stubbed-id', '+1', '7678456640', 'stubbed-id', 'personal');",
 			},
 		},
@@ -348,11 +355,15 @@ func TestGenerateSQL(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			uuidGenerator := &StubUUIDGenerator{}
-			oplogService := NewOplogService(uuidGenerator)
+			oplogService := NewOplogService(context.Background(), uuidGenerator)
 			got := oplogService.GenerateSQL(test.oplog)
 
 			if !reflect.DeepEqual(got, test.want) {
-				t.Errorf("Generated SQL does not match the expected result.\nWant: %s\nGot: %s", test.want, got)
+				t.Errorf(
+					"Generated SQL does not match the expected result.\nWant: %s\nGot: %s",
+					test.want,
+					got,
+				)
 			}
 		})
 	}

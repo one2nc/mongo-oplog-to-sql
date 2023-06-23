@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -14,10 +15,15 @@ type OplogService interface {
 }
 
 type oplogService struct {
+	cacheMap      map[string]bool
+	uuidGenerator domain.UUIDGenerator
 }
 
-func NewOplogService() OplogService {
-	return &oplogService{}
+func NewOplogService(uuidGenerator domain.UUIDGenerator) OplogService {
+	return &oplogService{
+		cacheMap:      make(map[string]bool),
+		uuidGenerator: uuidGenerator,
+	}
 }
 
 func (s *oplogService) GenerateSQL(oplogString string) []string {
@@ -32,10 +38,9 @@ func (s *oplogService) GenerateSQL(oplogString string) []string {
 		oplogEntries = append(oplogEntries, oplogEntry)
 	}
 
-	cacheMap := make(map[string]bool)
 	sqlStatements := make([]string, 0)
 	for _, entry := range oplogEntries {
-		sqls, err := s.generateSQL(entry, cacheMap)
+		sqls, err := s.generateSQL(entry)
 		if err != nil {
 			break
 		}
@@ -45,25 +50,18 @@ func (s *oplogService) GenerateSQL(oplogString string) []string {
 	return sqlStatements
 }
 
-func (s *oplogService) generateSQL(entry domain.OplogEntry, cacheMap map[string]bool) ([]string, error) {
+func (s *oplogService) generateSQL(entry domain.OplogEntry) ([]string, error) {
 	sqlStatements := []string{}
 	switch entry.Operation {
 	case "i":
 		nsParts := strings.Split(entry.Namespace, ".")
 		schemaName := nsParts[0]
-		if !cacheMap[schemaName] {
-			cacheMap[schemaName] = true
+		if !s.cacheMap[schemaName] {
+			s.cacheMap[schemaName] = true
 			sqlStatements = append(sqlStatements, generateCreateSchemaSQL(schemaName))
 		}
 
-		if !cacheMap[entry.Namespace] {
-			cacheMap[entry.Namespace] = true
-			sqlStatements = append(sqlStatements, generateCreateTableSQL(entry, cacheMap))
-		} else if isEligibleForAlterTable(entry, cacheMap) {
-			sqlStatements = append(sqlStatements, generateAlterTableSQL(entry, cacheMap))
-		}
-
-		sqlStatements = append(sqlStatements, generateInsertSQL(entry))
+		sqlStatements = append(sqlStatements, s.generateCreateAlterAndInsertSQL(entry.Namespace, domain.Column{}, entry.Object)...)
 	case "u":
 		if sql, err := generateUpdateSQL(entry); err == nil {
 			sqlStatements = append(sqlStatements, sql)
@@ -81,63 +79,163 @@ func (s *oplogService) generateSQL(entry domain.OplogEntry, cacheMap map[string]
 	return sqlStatements, nil
 }
 
+func (s *oplogService) generateCreateAlterAndInsertSQL(namespace string, foreignColumn domain.Column, data map[string]interface{}) []string {
+	sqlStatements := []string{}
+
+	// create schema if not exists
+	if !s.cacheMap[namespace] {
+		s.cacheMap[namespace] = true
+		sqlStatements = append(sqlStatements, s.generateCreateTableSQL(namespace, foreignColumn, data))
+	} else if s.isEligibleForAlterTable(namespace, data) { // alter table if applicable
+		sqlStatements = append(sqlStatements, s.generateAlterTableSQL(namespace, data))
+	}
+
+	// add foreign column in the data
+	if foreignColumn.Name != "" {
+		data[foreignColumn.Name] = foreignColumn.Value
+	}
+
+	// generate insert statement
+	sqlStatements = append(sqlStatements, s.generateInsertSQL(namespace, data))
+
+	nsParts := strings.Split(namespace, ".")
+	schema := nsParts[0]
+	collection := nsParts[1]
+
+	// generate SQL statements for nested objects or arrays of objects
+	columnNames := sortColumns(data)
+	for _, columnName := range columnNames {
+		value := data[columnName]
+
+		switch reflect.TypeOf(value).Kind() {
+		case reflect.Slice, reflect.Map:
+			foreignTableName := columnName
+			foreignColumn := domain.Column{
+				Name:  collection + "__id",
+				Value: data["_id"],
+			}
+
+			sqlStatements = append(sqlStatements, s.generateSQLForNestedObject(schema, foreignTableName, foreignColumn, value)...)
+		default:
+			continue
+		}
+	}
+
+	return sqlStatements
+}
+
 func generateCreateSchemaSQL(schemaName string) string {
 	return fmt.Sprintf("CREATE SCHEMA %s;", schemaName)
 }
 
-func generateCreateTableSQL(entry domain.OplogEntry, cacheMap map[string]bool) string {
+func (s *oplogService) generateCreateTableSQL(tableName string, foreignColumn domain.Column, data map[string]interface{}) string {
 	var sb strings.Builder
 	sb.WriteString("CREATE TABLE ")
-	sb.WriteString(entry.Namespace)
+	sb.WriteString(tableName)
 	sb.WriteString("(")
 
-	columnNames := make([]string, 0, len(entry.Object))
-	for columnName := range entry.Object {
-		columnNames = append(columnNames, columnName)
-	}
-	sort.Strings(columnNames)
+	columnNames := sortColumns(data)
 
 	sep := ""
-	for _, columnName := range columnNames {
-		value := entry.Object[columnName]
-		columnDataType := getColumnSQLDataType(columnName, value)
-
-		cacheKey := fmt.Sprintf("%s.%s.%s", entry.Namespace, columnName, columnDataType)
-		cacheMap[cacheKey] = true
-
-		sb.WriteString(fmt.Sprintf("%s%s %s", sep, columnName, columnDataType))
+	if foreignColumn.Name != "" {
+		// create primary key for sub table
+		primaryKeyCol := domain.Column{
+			Name:  "_id",
+			Value: "",
+		}
+		sb.WriteString(createColumn(tableName, sep, primaryKeyCol, s.cacheMap))
 		sep = ", "
+
+		// create foreign key in the sub table
+		sb.WriteString(createColumn(tableName, sep, foreignColumn, s.cacheMap))
+		sep = ", "
+	}
+
+	for _, columnName := range columnNames {
+		value := data[columnName]
+
+		// skip nested objects or arrays of objects
+		skip := false
+		switch reflect.TypeOf(value).Kind() {
+		case reflect.Slice, reflect.Map:
+			skip = true
+		}
+		if !skip {
+			column := domain.Column{Name: columnName, Value: value}
+
+			columnDataType := column.DataType()
+			cacheKey := fmt.Sprintf("%s.%s.%s", tableName, columnName, columnDataType)
+			s.cacheMap[cacheKey] = true
+
+			sb.WriteString(fmt.Sprintf("%s%s %s", sep, columnName, columnDataType))
+			if column.PrimaryKey() {
+				sb.WriteString(" PRIMARY KEY")
+			}
+			sep = ", "
+		}
 	}
 
 	sb.WriteString(");")
 	return sb.String()
 }
 
-func isEligibleForAlterTable(entry domain.OplogEntry, cacheMap map[string]bool) bool {
-	for columnName := range entry.Object {
-		value := entry.Object[columnName]
-		columnDataType := getColumnSQLDataType(columnName, value)
+func createColumn(tableName, sep string, column domain.Column, cacheMap map[string]bool) string {
+	cacheKey := fmt.Sprintf("%s.%s.%s", tableName, column.Name, column.DataType())
+	cacheMap[cacheKey] = true
 
-		cacheKey := fmt.Sprintf("%s.%s.%s", entry.Namespace, columnName, columnDataType)
-		if !cacheMap[cacheKey] {
+	if column.PrimaryKey() {
+		return fmt.Sprintf("%s%s %s PRIMARY KEY", sep, column.Name, column.DataType())
+	}
+	return fmt.Sprintf("%s%s %s", sep, column.Name, column.DataType())
+}
+
+func (s *oplogService) generateSQLForNestedObject(schema, tableName string, foreignColumn domain.Column, value interface{}) []string {
+	namespace := fmt.Sprintf("%s.%s", schema, tableName)
+
+	switch reflect.TypeOf(value).Kind() {
+	case reflect.Slice:
+		sqlStatements := []string{}
+		entries := value.([]interface{})
+		for _, entry := range entries {
+			subData := entry.(map[string]interface{})
+			subStatements := s.generateCreateAlterAndInsertSQL(namespace, foreignColumn, subData)
+			sqlStatements = append(sqlStatements, subStatements...)
+		}
+		return sqlStatements
+	case reflect.Map:
+		subData := value.(map[string]interface{})
+		return s.generateCreateAlterAndInsertSQL(namespace, foreignColumn, subData)
+	}
+
+	return []string{}
+}
+
+func (s *oplogService) isEligibleForAlterTable(namespace string, data map[string]interface{}) bool {
+	for columnName, value := range data {
+		column := domain.Column{Name: columnName, Value: value}
+		columnDataType := column.DataType()
+
+		cacheKey := fmt.Sprintf("%s.%s.%s", namespace, columnName, columnDataType)
+		if !s.cacheMap[cacheKey] {
 			return true
 		}
 	}
 	return false
 }
 
-func generateAlterTableSQL(entry domain.OplogEntry, cacheMap map[string]bool) string {
+func (s *oplogService) generateAlterTableSQL(namespace string, data map[string]interface{}) string {
 	var sb strings.Builder
 	sb.WriteString("ALTER TABLE ")
-	sb.WriteString(entry.Namespace)
+	sb.WriteString(namespace)
 
 	sep := " "
-	for columnName := range entry.Object {
-		value := entry.Object[columnName]
-		columnDataType := getColumnSQLDataType(columnName, value)
+	for columnName, value := range data {
+		column := domain.Column{Name: columnName, Value: value}
+		columnDataType := column.DataType()
 
-		cacheKey := fmt.Sprintf("%s.%s.%s", entry.Namespace, columnName, columnDataType)
-		if !cacheMap[cacheKey] {
+		cacheKey := fmt.Sprintf("%s.%s.%s", namespace, columnName, columnDataType)
+		if !s.cacheMap[cacheKey] {
+			s.cacheMap[cacheKey] = true
 			sb.WriteString(fmt.Sprintf("%sADD COLUMN %s %s", sep, columnName, columnDataType))
 			sep = ", "
 		}
@@ -147,21 +245,34 @@ func generateAlterTableSQL(entry domain.OplogEntry, cacheMap map[string]bool) st
 	return sb.String()
 }
 
-func generateInsertSQL(entry domain.OplogEntry) string {
+func (s *oplogService) generateInsertSQL(tableName string, data map[string]interface{}) string {
 	var sb strings.Builder
 	sb.WriteString("INSERT INTO ")
-	sb.WriteString(entry.Namespace)
+	sb.WriteString(tableName)
 	sb.WriteString(" ")
 
-	columns := make([]string, 0, len(entry.Object))
-	values := make([]string, 0, len(entry.Object))
+	// add primary key which is not exists for sub table
+	if _, exists := data["_id"]; !exists {
+		data["_id"] = s.uuidGenerator.UUID()
+	}
 
-	columnNames := sortColumns(entry.Object)
+	columns := make([]string, 0, len(data))
+	values := make([]string, 0, len(data))
+
+	columnNames := sortColumns(data)
 	for _, columnName := range columnNames {
-		columns = append(columns, columnName)
+		value := data[columnName]
+		// skip nested objects or arrays of objects
+		skip := false
+		switch reflect.TypeOf(value).Kind() {
+		case reflect.Slice, reflect.Map:
+			skip = true
+		}
+		if !skip {
+			columns = append(columns, columnName)
 
-		value := entry.Object[columnName]
-		values = append(values, getColumnValue(value))
+			values = append(values, getColumnValue(value))
+		}
 	}
 
 	sb.WriteString(fmt.Sprintf("(%s)", strings.Join(columns, ", ")))
@@ -223,26 +334,6 @@ func getColumnValue(value interface{}) string {
 	default:
 		return fmt.Sprintf("'%v'", value)
 	}
-}
-
-func getColumnSQLDataType(columnName string, value interface{}) string {
-	var columnDataType string
-	switch value.(type) {
-	case int, int8, int16, int32, int64:
-		columnDataType = "INTEGER"
-	case float32, float64:
-		columnDataType = "FLOAT"
-	case bool:
-		columnDataType = "BOOLEAN"
-	default:
-		// For simplicity, treat all non-numeric values as string
-		columnDataType = "VARCHAR(255)"
-	}
-
-	if columnName == "_id" {
-		columnDataType = fmt.Sprintf("%s PRIMARY KEY", columnDataType)
-	}
-	return columnDataType
 }
 
 func generateSetClause(setMap map[string]interface{}) string {

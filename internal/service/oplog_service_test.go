@@ -5,6 +5,14 @@ import (
 	"testing"
 )
 
+const STUBBED_ID = "stubbed-id"
+
+type StubUUIDGenerator struct{}
+
+func (g *StubUUIDGenerator) UUID() string {
+	return STUBBED_ID
+}
+
 func TestGenerateSQL(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -254,11 +262,93 @@ func TestGenerateSQL(t *testing.T) {
 				"ALTER TABLE test.student ADD COLUMN phone VARCHAR(255);",
 				"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, phone, roll_no) VALUES ('14798c213f273a7ca2cf5174', '2001-03-23', true, 'George Smith', '+91-81254966457', 21);"},
 		},
+		{
+			name: "Insert Operation - handle nested mongo document",
+			oplog: `{
+				"op": "i",
+				"ns": "test.student",
+				"o": {
+				  "_id": "635b79e231d82a8ab1de863b",
+				  "name": "Selena Miller",
+				  "roll_no": 51,
+				  "is_graduated": false,
+				  "date_of_birth": "2000-01-30",
+				  "address": [
+					{
+					  "line1": "481 Harborsburgh",
+					  "zip": "89799"
+					},
+					{
+					  "line1": "329 Flatside",
+					  "zip": "80872"
+					}
+				  ],
+				  "phone": {
+					"personal": "7678456640",
+					"work": "8130097989"
+				  }
+				}
+			  }`,
+			want: []string{
+				"CREATE SCHEMA test;",
+				"CREATE TABLE test.student(_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
+				"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
+				"CREATE TABLE test.address(_id VARCHAR(255) PRIMARY KEY, student__id VARCHAR(255), line1 VARCHAR(255), zip VARCHAR(255));",
+				"INSERT INTO test.address (_id, line1, student__id, zip) VALUES ('stubbed-id', '481 Harborsburgh', '635b79e231d82a8ab1de863b', '89799');",
+				"INSERT INTO test.address (_id, line1, student__id, zip) VALUES ('stubbed-id', '329 Flatside', '635b79e231d82a8ab1de863b', '80872');",
+				"CREATE TABLE test.phone(_id VARCHAR(255) PRIMARY KEY, student__id VARCHAR(255), personal VARCHAR(255), work VARCHAR(255));",
+				"INSERT INTO test.phone (_id, personal, student__id, work) VALUES ('stubbed-id', '7678456640', '635b79e231d82a8ab1de863b', '8130097989');",
+			},
+		},
+		{
+			name: "Insert Operation - handle multi-level nested mongo document",
+			oplog: `{
+				"op": "i",
+				"ns": "test.student",
+				"o": {
+				  "_id": "635b79e231d82a8ab1de863b",
+				  "name": "Selena Miller",
+				  "roll_no": 51,
+				  "is_graduated": false,
+				  "date_of_birth": "2000-01-30",
+				  "address": [
+					{
+					  "line1": "481 Harborsburgh",
+					  "zip": "89799"
+					},
+					{
+					  "line1": "329 Flatside",
+					  "zip": "80872"
+					}
+				  ],
+				  "phone": {
+					"phone_number": {
+						"type": "personal",
+						"country_code": "+1",
+						"number": "7678456640"
+					}
+				  }
+				}
+			  }`,
+			want: []string{
+				"CREATE SCHEMA test;",
+				"CREATE TABLE test.student(_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
+				"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
+				"CREATE TABLE test.address(_id VARCHAR(255) PRIMARY KEY, student__id VARCHAR(255), line1 VARCHAR(255), zip VARCHAR(255));",
+				"INSERT INTO test.address (_id, line1, student__id, zip) VALUES ('stubbed-id', '481 Harborsburgh', '635b79e231d82a8ab1de863b', '89799');",
+				"INSERT INTO test.address (_id, line1, student__id, zip) VALUES ('stubbed-id', '329 Flatside', '635b79e231d82a8ab1de863b', '80872');",
+				"CREATE TABLE test.phone(_id VARCHAR(255) PRIMARY KEY, student__id VARCHAR(255));",
+				"INSERT INTO test.phone (_id, student__id) VALUES ('stubbed-id', '635b79e231d82a8ab1de863b');",
+				"CREATE TABLE test.phone_number(_id VARCHAR(255) PRIMARY KEY, phone__id VARCHAR(255), country_code VARCHAR(255), number VARCHAR(255), type VARCHAR(255));",
+				"INSERT INTO test.phone_number (_id, country_code, number, phone__id, type) VALUES ('stubbed-id', '+1', '7678456640', 'stubbed-id', 'personal');",
+			},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			oplogService := NewOplogService()
+			uuidGenerator := &StubUUIDGenerator{}
+			oplogService := NewOplogService(uuidGenerator)
 			got := oplogService.GenerateSQL(test.oplog)
 
 			if !reflect.DeepEqual(got, test.want) {

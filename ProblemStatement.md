@@ -384,6 +384,84 @@ Expectation:
 - Your program should assign null values to columns for which the JSON fields are missing.
 - Currently, in the sample input, we are only considering an addition of one field (phone). However, your program should handle addition of any number of new fields and generate those many number of `alter table` statements.
 
+## Story 7 (handle nested mongo document)
+
+So far, we have handled simple JSON documents in MongoDB. In this story, you will have to handle parsing of oplogs of nested JSON objects.
+
+Sample Input:
+
+```json
+{
+  "op": "i",
+  "ns": "test.student",
+  "o": {
+    "_id": "635b79e231d82a8ab1de863b",
+    "name": "Selena Miller",
+    "roll_no": 51,
+    "is_graduated": false,
+    "date_of_birth": "2000-01-30",
+    "address": [
+      {
+        "line1": "481 Harborsburgh",
+        "zip": "89799"
+      },
+      {
+        "line1": "329 Flatside",
+        "zip": "80872"
+      }
+    ],
+    "phone": {
+      "personal": "7678456640",
+      "work": "8130097989"
+    }
+  }
+}
+```
+
+In the input, we have `phone`, which is a single nested JSON object and we have `address`, which is an array of nested JSON objects. Let’s see how this is represented in the expected SQL below.
+
+Expected Output:
+
+```sql
+CREATE SCHEMA test;
+
+CREATE TABLE test.address(_id varchar(255) PRIMARY KEY,line1 varchar(255),student__id varchar(255),zip varchar(255));
+
+INSERT INTO test.address (_id,line1,student__id,zip) VALUES ('1642f9ad-3856-4b21-8f85-b6886701a1de','481 Harborsburgh','635b79e231d82a8ab1de863b','89799');
+
+INSERT INTO test.address (_id,line1,student__id,zip) VALUES ('21d4807b-aecf-4a33-8ff3-6b33a7cecec8','329 Flatside','635b79e231d82a8ab1de863b','80872');
+
+CREATE TABLE test.phone(_id varchar(255) PRIMARY KEY,personal varchar(255),student__id varchar(255),work varchar(255));
+
+INSERT INTO test.phone (_id,personal,student__id,work) VALUES ('e32996dd-ee28-416f-b3f9-0a62d4bd0a95','7678456640','635b79e231d82a8ab1de863b','8130097989');
+
+CREATE TABLE test.student(_id varchar(255) PRIMARY KEY,date_of_birth varchar(255),is_graduated boolean,name varchar(255),roll_no float);
+
+INSERT INTO test.student (_id,date_of_birth,is_graduated,name,roll_no) VALUES ('635b79e231d82a8ab1de863b','2000-01-30',false,'Selena Miller',51.000000);
+```
+
+Since we are dealing with relational data, we will have to create multiple tables with foreign key references. For simplicity, we will not create actual foreign key constraints in any of the tables.
+
+We will create the separate tables for nested objects (i.e. address and phone), then insert records in those tables. Note the use of `student__id` column in the address and phone tables. This is the soft-foreign key to the student table’s id column. Once all the records are inserted in address and phone tables, we’ll insert records in the main parent student table.
+
+Since we are not creating foreign key constraints and reference in the database, the order in which the tables are created and the order in which the records are inserted in those tables does not matter.
+
+Assumptions:
+
+- For simplicity, assume nesting of JSON documents only at the top level.
+- Assume that`_id` is a varchar always.
+- We will not deal with the auto generation of `_id`. It will be a varchar, and will be a randomly generated UUID for foreign tables. `_id` for main table comes from the `_id` field of mongo oplog itself.
+- `_id` of foreign table needs to be created by the program automatically. This value then must be used for any reference to other related tables.
+- All the foreign tables/associated table will have the reference of primary key from main table. And the primary table will not have any referencing key from associated tables.
+- There’s no need to create actual foreign key references in SQL. The SQL JOINS will happen just by soft-references (i.e. values in referenced columns), not via actual foreign key constraints in database.
+
+Expectations:
+
+- You’ll have to create associated tables with primary key as `_id` which will be a randomly generated UUID
+- You’ll have to create soft-foreign keys accordingly, so that all the details of employees can be fetched using JOINS.
+- The SQL should be generated such that it can be run on any relational DB without any modifications. For example, note the order of `create table` above. We generate the phone table first, and then the employees table. The phone table has reference to the employee table using `employee__id` column.
+- For simplicity, for a single nested object (e.g. phone), always generate a 1:M relationship. Note that the phone table has a foreign key reference to employee table using employee__id.
+
 ## Instructions
 
 1. You will have to create a new repo in language of your choice (Java, Go, etc)

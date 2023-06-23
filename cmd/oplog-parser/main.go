@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
+	"github.com/one2nc/mongo-oplog-to-sql/config"
 	"github.com/one2nc/mongo-oplog-to-sql/internal/domain"
 	"github.com/one2nc/mongo-oplog-to-sql/internal/reader"
 	"github.com/one2nc/mongo-oplog-to-sql/internal/service"
@@ -30,9 +32,9 @@ func init() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "MongoOplogToSQL",
+	Use:   "oplog2sql",
 	Short: "A utility for parsing MongoDB's oplog and translating it into equivalent SQL statements",
-	Long:  `MongoOplogToSQL is a powerful utility that allows you to parse the oplog data from MongoDB and effortlessly translate it into SQL statements. With this tool, you can seamlessly migrate your data from MongoDB to a SQL-based database system while preserving the integrity and structure of your data. Say goodbye to manual migration efforts and let MongoOplogToSQL automate the process for you.`,
+	Long:  `oplog2sql is a powerful utility that allows you to parse the oplog data from MongoDB and effortlessly translate it into SQL statements. With this tool, you can seamlessly migrate your data from MongoDB to a SQL-based database system while preserving the integrity and structure of your data. Say goodbye to manual migration efforts and let oplog2sql automate the process for you.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if !cmd.Flags().HasFlags() {
 			cmd.Usage()
@@ -45,7 +47,15 @@ var rootCmd = &cobra.Command{
 		// Handle interrupt signal
 		handleInterruptSignal(cancel)
 
+		cfg := config.Load()
+
 		publisher := domain.NewInMemoryOplogPublisher()
+
+		// Create a reader to read the oplogs
+		oplogReader := createReader(oplogFile, cfg.MongoURI)
+
+		// Start reading Oplog entries in a separate goroutine
+		go oplogReader.ReadOplogs(ctx, publisher)
 
 		// Get oplogs from publisher
 		oplogChan, err := publisher.GetOplogs()
@@ -54,19 +64,27 @@ var rootCmd = &cobra.Command{
 			return
 		}
 
-		// Create a reader to read the oplogs
-		oplogReader := reader.NewFileReader(oplogFile)
-
-		// Start reading Oplog entries in a separate goroutine
-		go oplogReader.ReadOplogs(ctx, publisher)
-
 		// Create a service to process the oplogs
 		oplogService := service.NewOplogService(ctx, domain.NewDefaultUUIDGenerator())
-		sqlChan := oplogService.ProcessOplogs(oplogChan, cancel)
 
-		// Create a writer to write the sql statements
-		sqlWriter := writer.NewFileWriter(sqlFile)
-		sqlWriter.WriteSQL(ctx, sqlChan)
+		// Uncomment below line for serial implementation
+		// sqlChan := oplogService.ProcessOplogs(oplogChan, cancel)
+
+		// Comment below line for serial implementation
+		sqlChan := oplogService.ProcessOplogsConcurrent(oplogChan, cancel)
+
+		var wg sync.WaitGroup
+		for sqlStmt := range sqlChan {
+			wg.Add(1)
+			go func(sqlStmt domain.SQLStatement) {
+				defer wg.Done()
+				// Create a writer to write the sql statements
+				sqlWriter := createWriter(sqlFile, sqlStmt.GetDBName(), cfg.DBConfig)
+				sqlWriter.WriteSQL(ctx, sqlStmt.GetChannel())
+			}(sqlStmt)
+		}
+
+		wg.Wait()
 	},
 }
 
@@ -82,4 +100,18 @@ func handleInterruptSignal(cancel context.CancelFunc) {
 		// Cancel the context to signal the shutdown
 		cancel()
 	}()
+}
+
+func createReader(oplogFile, mongoConnectionStr string) reader.OplogReader {
+	if oplogFile != "" {
+		return reader.NewFileReader(oplogFile)
+	}
+	return reader.NewMongoReader(mongoConnectionStr)
+}
+
+func createWriter(sqlFile, schemaName string, dbCfg config.DBConfig) writer.SQLWriter {
+	if sqlFile != "" {
+		return writer.NewFileWriter(fmt.Sprintf("out/%s_%s", schemaName, sqlFile))
+	}
+	return writer.NewPostgresWriter(dbCfg)
 }

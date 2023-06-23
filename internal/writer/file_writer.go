@@ -31,6 +31,15 @@ func (f *FileWriter) WriteSQL(ctx context.Context, sqlChan <-chan string) {
 
 	writeFlushCntr := 0
 	for sqlCmd := range sqlChan {
+		// Check if the context is done
+		select {
+		case <-ctx.Done():
+			// The context is done, stop reading Oplogs
+			return
+		default:
+			// Context is still active, continue reading Oplogs
+		}
+
 		_, err := writer.WriteString(fmt.Sprintf("%s\n", sqlCmd))
 		println(sqlCmd)
 		if err != nil {

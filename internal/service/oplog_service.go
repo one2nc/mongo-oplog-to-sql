@@ -35,10 +35,9 @@ func (s *oplogService) ProcessOplogs(
 	oplogChan <-chan domain.OplogEntry,
 	cancel context.CancelFunc,
 ) <-chan string {
-	sqlChan := make(chan string)
+	sqlChan := make(chan string, 100)
 
 	go func() {
-
 	forLoop:
 		for entry := range oplogChan {
 			// Check if the context is done

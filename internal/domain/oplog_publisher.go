@@ -15,7 +15,7 @@ type InMemoryOplogPublisher struct {
 // NewInMemoryOplogPublisher creates a new instance of InMemoryOplogPublisher.
 func NewInMemoryOplogPublisher() OplogPublisher {
 	return &InMemoryOplogPublisher{
-		channel: make(chan OplogEntry),
+		channel: make(chan OplogEntry, 100),
 	}
 }
 

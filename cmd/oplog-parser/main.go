@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/one2nc/mongo-oplog-to-sql/config"
 	"github.com/one2nc/mongo-oplog-to-sql/internal/domain"
 	"github.com/one2nc/mongo-oplog-to-sql/internal/reader"
 	"github.com/one2nc/mongo-oplog-to-sql/internal/service"
@@ -47,6 +48,14 @@ var rootCmd = &cobra.Command{
 
 		publisher := domain.NewInMemoryOplogPublisher()
 
+		cfg := config.Load()
+
+		// Create a reader to read the oplogs
+		oplogReader := createReader(oplogFile, cfg.MongoURI)
+
+		// Start reading Oplog entries in a separate goroutine
+		go oplogReader.ReadOplogs(ctx, publisher)
+
 		// Get oplogs from publisher
 		oplogChan, err := publisher.GetOplogs()
 		if err != nil {
@@ -54,18 +63,12 @@ var rootCmd = &cobra.Command{
 			return
 		}
 
-		// Create a reader to read the oplogs
-		oplogReader := reader.NewFileReader(oplogFile)
-
-		// Start reading Oplog entries in a separate goroutine
-		go oplogReader.ReadOplogs(ctx, publisher)
-
 		// Create a service to process the oplogs
 		oplogService := service.NewOplogService(ctx, domain.NewDefaultUUIDGenerator())
 		sqlChan := oplogService.ProcessOplogs(oplogChan, cancel)
 
 		// Create a writer to write the sql statements
-		sqlWriter := writer.NewFileWriter(sqlFile)
+		sqlWriter := createWriter(sqlFile, cfg.DBConfig)
 		sqlWriter.WriteSQL(ctx, sqlChan)
 	},
 }
@@ -82,4 +85,24 @@ func handleInterruptSignal(cancel context.CancelFunc) {
 		// Cancel the context to signal the shutdown
 		cancel()
 	}()
+}
+
+func createReader(oplogFile, mongoConnectionStr string) reader.OplogReader {
+	var oplogReader reader.OplogReader
+	if oplogFile != "" {
+		oplogReader = reader.NewFileReader(oplogFile)
+	} else {
+		oplogReader = reader.NewMongoReader(mongoConnectionStr)
+	}
+	return oplogReader
+}
+
+func createWriter(sqlFile string, dbCfg config.DBConfig) writer.SQLWriter {
+	var sqlWriter writer.SQLWriter
+	if sqlFile != "" {
+		sqlWriter = writer.NewFileWriter(sqlFile)
+	} else {
+		sqlWriter = writer.NewPostgresWriter(dbCfg)
+	}
+	return sqlWriter
 }

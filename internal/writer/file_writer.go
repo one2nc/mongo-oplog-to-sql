@@ -28,31 +28,29 @@ func (f *FileWriter) WriteSQL(ctx context.Context, sqlChan <-chan string) {
 	defer outputFile.Close()
 
 	writer := bufio.NewWriter(outputFile)
+	defer func() {
+		err = writer.Flush()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}()
 
-	writeFlushCntr := 0
 	for sqlCmd := range sqlChan {
+		// Check if the context is done
+		select {
+		case <-ctx.Done():
+			// The context is done, stop reading Oplogs
+			return
+		default:
+			// Context is still active, continue reading Oplogs
+		}
+
 		_, err := writer.WriteString(fmt.Sprintf("%s\n", sqlCmd))
 		println(sqlCmd)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-
-		// this will act as a counter to flush
-		writeFlushCntr++
-		// deciding threshold of writer to flush
-		if writeFlushCntr%10 == 0 {
-			err := writer.Flush()
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-		}
-	}
-
-	err = writer.Flush()
-	if err != nil {
-		fmt.Println(err)
-		return
 	}
 }

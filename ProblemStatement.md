@@ -478,6 +478,31 @@ Expectations:
 - Make sure while reading the file we process one oplog at a time. This will be helpful to you in further story where you would be getting data infinitely in stream.
 - You are expected to write the generated SQL statements in a file. You can compare your output file with our [example-output.sql](https://github.com/one2nc/mongo-oplog-to-sql/blob/main/example-output.sql).
 
+## Story 9 (reading oplogs from MongoDB)
+
+In the story 8, we are reading MongoDB oplogs from a JSON file. Now, we expect you to read the oplogs directly from MongoDB server and generate equivalent SQL statements. You should read the oplogs from MongoDb server until a user signal is given for termination. 
+
+Write the generated SQL statements directly in relational database.
+
+Assumptions:
+
+- Assume Postgres as relational database for now when we are writing the generated SQL statements in relational database.
+
+Expectations:
+
+- As we might not get a specific set of data i.e data can come in stream mode with certain intervals. So make sure while reading oplogs from MongoDB server, we process one oplog at a time.
+- It should terminate reading from MongoDB only when a user signal (ctrl + c) is given.
+- As you have build the code where you are parsing oplogs from a JSON file and writing the generated SQL statements in a SQL file and also reading oplogs directly from MongoDb server and writing the generated SQL statements in a relational database. We expect you to enable your code in a such way that it can accept the possibility of reading the oplogs from MongoDB server or a JSON file and writing the generated SQL statements in a file or in relational database. i.e.:
+    
+    JSON File → SQL File
+    
+    JSON File → Relational database
+    
+    MongoDB server → SQL File
+    
+    MongoDB server → Relational database
+    
+
 ## Instructions
 
 1. You will have to create a new repo in language of your choice (Java, Go, etc)

@@ -1,0 +1,16 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:alpine
+    restart: always
+    container_name: mongo-oplog-sql-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data_1:/var/lib/postgresql/data
+volumes:
+  db_data_1:
+    

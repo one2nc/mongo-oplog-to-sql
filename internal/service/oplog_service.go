@@ -12,7 +12,7 @@ import (
 )
 
 type OplogService interface {
-	GenerateSQL(oplog string) []string
+	ProcessOplog(oplog string) []string
 	ProcessOplogs(oplogChan <-chan domain.OplogEntry, cancel context.CancelFunc) <-chan string
 }
 
@@ -49,7 +49,7 @@ func (s *oplogService) ProcessOplogs(
 				// Context is still active, continue reading Oplogs
 			}
 
-			sqls, err := s.generateSQL(entry)
+			sqls, err := s.processOplog(entry)
 			if err != nil {
 				break
 			}
@@ -68,7 +68,7 @@ func (s *oplogService) ProcessOplogs(
 	return sqlChan
 }
 
-func (s *oplogService) GenerateSQL(oplogString string) []string {
+func (s *oplogService) ProcessOplog(oplogString string) []string {
 	var oplogEntries []domain.OplogEntry
 	err := json.Unmarshal([]byte(oplogString), &oplogEntries)
 	if err != nil {
@@ -82,7 +82,7 @@ func (s *oplogService) GenerateSQL(oplogString string) []string {
 
 	sqlStatements := make([]string, 0)
 	for _, entry := range oplogEntries {
-		sqls, err := s.generateSQL(entry)
+		sqls, err := s.processOplog(entry)
 		if err != nil {
 			break
 		}
@@ -92,7 +92,7 @@ func (s *oplogService) GenerateSQL(oplogString string) []string {
 	return sqlStatements
 }
 
-func (s *oplogService) generateSQL(entry domain.OplogEntry) ([]string, error) {
+func (s *oplogService) processOplog(entry domain.OplogEntry) ([]string, error) {
 	sqlStatements := []string{}
 	switch entry.Operation {
 	case "i":
@@ -299,14 +299,22 @@ func (s *oplogService) generateAlterTableSQL(namespace string, data map[string]i
 
 	sep := " "
 	for columnName, value := range data {
-		column := domain.Column{Name: columnName, Value: value}
-		columnDataType := column.DataType()
+		// skip nested objects or arrays of objects
+		skip := false
+		switch reflect.TypeOf(value).Kind() {
+		case reflect.Slice, reflect.Map:
+			skip = true
+		}
+		if !skip {
+			column := domain.Column{Name: columnName, Value: value}
+			columnDataType := column.DataType()
 
-		cacheKey := fmt.Sprintf("%s.%s.%s", namespace, columnName, columnDataType)
-		if !s.cacheMap[cacheKey] {
-			s.cacheMap[cacheKey] = true
-			sb.WriteString(fmt.Sprintf("%sADD COLUMN %s %s", sep, columnName, columnDataType))
-			sep = ", "
+			cacheKey := fmt.Sprintf("%s.%s.%s", namespace, columnName, columnDataType)
+			if !s.cacheMap[cacheKey] {
+				s.cacheMap[cacheKey] = true
+				sb.WriteString(fmt.Sprintf("%sADD COLUMN %s %s", sep, columnName, columnDataType))
+				sep = ", "
+			}
 		}
 	}
 

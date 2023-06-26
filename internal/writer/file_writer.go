@@ -29,7 +29,6 @@ func (f *FileWriter) WriteSQL(ctx context.Context, sqlChan <-chan string) {
 
 	writer := bufio.NewWriter(outputFile)
 
-	writeFlushCntr := 0
 	for sqlCmd := range sqlChan {
 		// Check if the context is done
 		select {
@@ -45,17 +44,6 @@ func (f *FileWriter) WriteSQL(ctx context.Context, sqlChan <-chan string) {
 		if err != nil {
 			fmt.Println(err)
 			return
-		}
-
-		// this will act as a counter to flush
-		writeFlushCntr++
-		// deciding threshold of writer to flush
-		if writeFlushCntr%10 == 0 {
-			err := writer.Flush()
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
 		}
 	}
 

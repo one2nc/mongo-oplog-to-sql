@@ -1,6 +1,6 @@
 # Mongo-oplog-to-sql
 
-![mongo-oplog-to-sql-flow](assests/Mongo-oplog-to-sql.png)
+![mongo-oplog-to-sql-flow](assets/Mongo-oplog-to-sql.png)
 
 
 > There are solutions that are able to store the JSON document in a relational table using PostgreSQL JSON support, but it doesn't solve the real problem of 'how to really use that data'. The system enables parsing of data in MongoDB's oplog and translating it to equivalent SQL statements.

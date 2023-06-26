@@ -356,7 +356,7 @@ func TestGenerateSQL(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			uuidGenerator := &StubUUIDGenerator{}
 			oplogService := NewOplogService(context.Background(), uuidGenerator)
-			got := oplogService.GenerateSQL(test.oplog)
+			got := oplogService.ProcessOplog(test.oplog)
 
 			if !reflect.DeepEqual(got, test.want) {
 				t.Errorf(

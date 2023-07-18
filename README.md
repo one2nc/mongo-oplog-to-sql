@@ -57,8 +57,11 @@ To set up the development environment, follow these steps:
 
 6. To tear down PostgreSQL, use `make setup-down`.
 
-### Open Issues/Cases Not Handled
+## Open Issues/Cases Not Handled
 
 1. Updating records in foreign tables or associated tables.
 
 2. Deletion of records in foreign tables or associated tables.
+
+## License
+This project is licensed under the [MIT License](./LICENSE)

@@ -1,4 +1,5 @@
 # Mongo-oplog-to-sql
+This repository serves as a reference implementation for the problem statement described [here](https://playbook.one2n.in/mongodb-oplog-to-sql-parser-exercise).
 
 ![mongo-oplog-to-sql-flow](assets/Mongo-oplog-to-sql.png)
 

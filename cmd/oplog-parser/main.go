@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/one2nc/mongo-oplog-to-sql/config"
@@ -65,11 +66,20 @@ var rootCmd = &cobra.Command{
 
 		// Create a service to process the oplogs
 		oplogService := service.NewOplogService(ctx, domain.NewDefaultUUIDGenerator())
-		sqlChan := oplogService.ProcessOplogs(oplogChan, cancel)
+		sqlChan := oplogService.ProcessOplogsConcurrent(oplogChan, cancel)
 
-		// Create a writer to write the sql statements
-		sqlWriter := createWriter(sqlFile, cfg.DBConfig)
-		sqlWriter.WriteSQL(ctx, sqlChan)
+		var wg sync.WaitGroup
+		for sqlStmt := range sqlChan {
+			wg.Add(1)
+			go func(sqlStmt domain.SQLStatement) {
+				defer wg.Done()
+				// Create a writer to write the sql statements
+				sqlWriter := createWriter(sqlFile, sqlStmt.GetDBName(), cfg.DBConfig)
+				sqlWriter.WriteSQL(ctx, sqlStmt.GetChannel())
+			}(sqlStmt)
+		}
+
+		wg.Wait()
 	},
 }
 
@@ -88,21 +98,15 @@ func handleInterruptSignal(cancel context.CancelFunc) {
 }
 
 func createReader(oplogFile, mongoConnectionStr string) reader.OplogReader {
-	var oplogReader reader.OplogReader
 	if oplogFile != "" {
-		oplogReader = reader.NewFileReader(oplogFile)
-	} else {
-		oplogReader = reader.NewMongoReader(mongoConnectionStr)
+		return reader.NewFileReader(oplogFile)
 	}
-	return oplogReader
+	return reader.NewMongoReader(mongoConnectionStr)
 }
 
-func createWriter(sqlFile string, dbCfg config.DBConfig) writer.SQLWriter {
-	var sqlWriter writer.SQLWriter
+func createWriter(sqlFile, schemaName string, dbCfg config.DBConfig) writer.SQLWriter {
 	if sqlFile != "" {
-		sqlWriter = writer.NewFileWriter(sqlFile)
-	} else {
-		sqlWriter = writer.NewPostgresWriter(dbCfg)
+		return writer.NewFileWriter(fmt.Sprintf("out/%s_%s", schemaName, sqlFile))
 	}
-	return sqlWriter
+	return writer.NewPostgresWriter(dbCfg)
 }

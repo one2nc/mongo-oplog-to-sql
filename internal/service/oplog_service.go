@@ -7,65 +7,32 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/one2nc/mongo-oplog-to-sql/internal/domain"
 )
 
 type OplogService interface {
 	ProcessOplog(oplog string) []string
-	ProcessOplogs(oplogChan <-chan domain.OplogEntry, cancel context.CancelFunc) <-chan string
+	ProcessOplogs(oplogChan <-chan domain.OplogEntry, cancel context.CancelFunc) chan domain.SQLStatement
+	ProcessOplogsConcurrent(oplogChan <-chan domain.OplogEntry, cancel context.CancelFunc) chan domain.SQLStatement
 }
 
 type oplogService struct {
 	ctx context.Context
 
-	cacheMap      map[string]bool
+	databaseOplogChanMap map[string]chan domain.OplogEntry
+
 	uuidGenerator domain.UUIDGenerator
 }
 
 func NewOplogService(ctx context.Context, uuidGenerator domain.UUIDGenerator) OplogService {
 	return &oplogService{
-		ctx:           ctx,
-		cacheMap:      make(map[string]bool),
-		uuidGenerator: uuidGenerator,
+		ctx: ctx,
+		// cacheMap:               make(map[string]bool),
+		databaseOplogChanMap: make(map[string]chan domain.OplogEntry),
+		uuidGenerator:        uuidGenerator,
 	}
-}
-
-func (s *oplogService) ProcessOplogs(
-	oplogChan <-chan domain.OplogEntry,
-	cancel context.CancelFunc,
-) <-chan string {
-	sqlChan := make(chan string, 100)
-
-	go func() {
-	forLoop:
-		for entry := range oplogChan {
-			// Check if the context is done
-			select {
-			case <-s.ctx.Done():
-				// The context is done, stop reading Oplogs
-				break forLoop
-			default:
-				// Context is still active, continue reading Oplogs
-			}
-
-			sqls, err := s.processOplog(entry)
-			if err != nil {
-				break
-			}
-
-			for _, sql := range sqls {
-				sqlChan <- sql
-			}
-		}
-
-		// Close the out channel after all values are processed
-		close(sqlChan)
-
-		cancel()
-	}()
-
-	return sqlChan
 }
 
 func (s *oplogService) ProcessOplog(oplogString string) []string {
@@ -80,9 +47,11 @@ func (s *oplogService) ProcessOplog(oplogString string) []string {
 		oplogEntries = append(oplogEntries, oplogEntry)
 	}
 
+	cache := domain.NewCache()
+
 	sqlStatements := make([]string, 0)
 	for _, entry := range oplogEntries {
-		sqls, err := s.processOplog(entry)
+		sqls, err := s.processOplog(entry, cache)
 		if err != nil {
 			break
 		}
@@ -92,20 +61,188 @@ func (s *oplogService) ProcessOplog(oplogString string) []string {
 	return sqlStatements
 }
 
-func (s *oplogService) processOplog(entry domain.OplogEntry) ([]string, error) {
+func (s *oplogService) ProcessOplogs(
+	oplogChan <-chan domain.OplogEntry,
+	cancel context.CancelFunc,
+) chan domain.SQLStatement {
+	sqlChan := make(chan domain.SQLStatement, 10)
+	sqlStmt := domain.NewSQLStatement("1")
+	sqlChan <- sqlStmt
+
+	go func() {
+		cache := domain.NewCache()
+	forLoop:
+		for {
+			select {
+			case oplog, ok := <-oplogChan:
+				if !ok {
+					// oplogChan is closed, stop reading Oplogs
+					break forLoop
+				}
+
+				sqls, err := s.processOplog(oplog, cache)
+				if err != nil {
+					break
+				}
+
+				for _, sql := range sqls {
+					sqlStmt.Publish(sql)
+				}
+			case <-s.ctx.Done():
+				// The context is done, stop reading Oplogs
+				break forLoop
+			}
+		}
+
+		// Close the out channel after all values are processed
+		sqlStmt.Close()
+
+		cancel()
+	}()
+
+	return sqlChan
+}
+
+func (s *oplogService) ProcessOplogsConcurrent(
+	oplogChan <-chan domain.OplogEntry,
+	cancel context.CancelFunc,
+) chan domain.SQLStatement {
+	sqlChan := make(chan domain.SQLStatement, 1000)
+	sqlCloseChan := make(chan domain.SQLStatement, 1000)
+
+	var wg sync.WaitGroup
+
+	go func() {
+	forLoop:
+		for {
+			select {
+			case oplog, ok := <-oplogChan:
+				if !ok {
+					// oplogChan is closed, stop reading Oplogs
+					break forLoop
+				}
+
+				name := oplog.DatabaseName()
+				if _, ok := s.databaseOplogChanMap[name]; !ok {
+					databaseChan := make(chan domain.OplogEntry, 1000)
+					sqlStmt := domain.NewSQLStatement(name)
+
+					sqlChan <- sqlStmt
+					sqlCloseChan <- sqlStmt
+
+					// channel will be empty at this point
+					s.databaseOplogChanMap[name] = databaseChan
+
+					wg.Add(1)
+					go s.processCollectionOplog(databaseChan, sqlStmt, &wg)
+				}
+				s.databaseOplogChanMap[name] <- oplog
+
+			case <-s.ctx.Done():
+				// The context is done, stop reading Oplogs
+				break forLoop
+			}
+		}
+
+		for _, collectionOplogChan := range s.databaseOplogChanMap {
+			close(collectionOplogChan)
+		}
+
+		// Wait for all collection goroutines to finish
+		wg.Wait()
+
+		close(sqlCloseChan)
+		// Close the out channel after all values are processed
+		for sqlStmt := range sqlCloseChan {
+			sqlStmt.Close()
+		}
+
+		close(sqlChan)
+
+		cancel()
+	}()
+
+	return sqlChan
+}
+
+func (s *oplogService) processCollectionOplog(
+	oplogChan <-chan domain.OplogEntry,
+	sqlStmt domain.SQLStatement,
+	wg *sync.WaitGroup,
+) {
+	defer wg.Done()
+
+	collectionCache := domain.NewCache()
+	tableMap := make(map[string]chan domain.OplogEntry)
+
+	// WaitGroup for tables
+	var wgTable sync.WaitGroup
+	for oplog := range oplogChan {
+		tableName := oplog.TableName()
+		if _, ok := tableMap[tableName]; !ok {
+			tableChan := make(chan domain.OplogEntry, 1000)
+			tableMap[tableName] = tableChan
+			wgTable.Add(1)
+
+			// create schema if not exists
+			switch oplog.Operation {
+			case "i":
+				nsParts := strings.Split(oplog.Namespace, ".")
+				schemaName := nsParts[0]
+				if !collectionCache.LoadOrStore(schemaName, true) {
+					sql := generateCreateSchemaSQL(schemaName)
+					sqlStmt.Publish(sql)
+				}
+			}
+
+			go s.processTableOplog(tableChan, collectionCache, &wgTable, sqlStmt)
+
+		}
+		tableMap[tableName] <- oplog
+	}
+
+	for _, tableOplogChan := range tableMap {
+		close(tableOplogChan)
+	}
+
+	wgTable.Wait()
+}
+
+func (s *oplogService) processTableOplog(
+	oplogChan <-chan domain.OplogEntry,
+	cache domain.Cache,
+	wg *sync.WaitGroup,
+	sqlStmt domain.SQLStatement,
+) {
+	defer wg.Done()
+
+	for entry := range oplogChan {
+		// process the Oplog entry
+		sqls, err := s.processOplog(entry, cache)
+		if err != nil {
+			break
+		}
+
+		for _, sql := range sqls {
+			sqlStmt.Publish(sql)
+		}
+	}
+}
+
+func (s *oplogService) processOplog(entry domain.OplogEntry, cache domain.Cache) ([]string, error) {
 	sqlStatements := []string{}
 	switch entry.Operation {
 	case "i":
 		nsParts := strings.Split(entry.Namespace, ".")
 		schemaName := nsParts[0]
-		if !s.cacheMap[schemaName] {
-			s.cacheMap[schemaName] = true
+		// create schema if not exists
+		if !cache.LoadOrStore(schemaName, true) {
 			sqlStatements = append(sqlStatements, generateCreateSchemaSQL(schemaName))
 		}
 
 		sqlStatements = append(
 			sqlStatements,
-			s.generateCreateAlterAndInsertSQL(entry.Namespace, domain.Column{}, entry.Object)...)
+			s.generateCreateAlterAndInsertSQL(entry.Namespace, cache, domain.Column{}, entry.Object)...)
 	case "u":
 		if sql, err := generateUpdateSQL(entry); err == nil {
 			sqlStatements = append(sqlStatements, sql)
@@ -125,20 +262,20 @@ func (s *oplogService) processOplog(entry domain.OplogEntry) ([]string, error) {
 
 func (s *oplogService) generateCreateAlterAndInsertSQL(
 	namespace string,
+	cache domain.Cache,
 	foreignColumn domain.Column,
 	data map[string]interface{},
 ) []string {
 	sqlStatements := []string{}
 
-	// create schema if not exists
-	if !s.cacheMap[namespace] {
-		s.cacheMap[namespace] = true
+	// create table if not exists
+	if !cache.LoadOrStore(namespace, true) {
 		sqlStatements = append(
 			sqlStatements,
-			s.generateCreateTableSQL(namespace, foreignColumn, data),
+			s.generateCreateTableSQL(namespace, cache, foreignColumn, data),
 		)
-	} else if s.isEligibleForAlterTable(namespace, data) { // alter table if applicable
-		sqlStatements = append(sqlStatements, s.generateAlterTableSQL(namespace, data))
+	} else if s.isEligibleForAlterTable(namespace, cache, data) { // alter table if applicable
+		sqlStatements = append(sqlStatements, s.generateAlterTableSQL(namespace, cache, data))
 	}
 
 	// add foreign column in the data
@@ -160,7 +297,7 @@ func (s *oplogService) generateCreateAlterAndInsertSQL(
 
 		switch reflect.TypeOf(value).Kind() {
 		case reflect.Slice, reflect.Map:
-			foreignTableName := columnName
+			foreignTableName := fmt.Sprintf("%s_%s", collection, columnName)
 			foreignColumn := domain.Column{
 				Name:  collection + "__id",
 				Value: data["_id"],
@@ -168,7 +305,7 @@ func (s *oplogService) generateCreateAlterAndInsertSQL(
 
 			sqlStatements = append(
 				sqlStatements,
-				s.generateSQLForNestedObject(schema, foreignTableName, foreignColumn, value)...)
+				s.generateSQLForNestedObject(schema, cache, foreignTableName, foreignColumn, value)...)
 		default:
 			continue
 		}
@@ -183,6 +320,7 @@ func generateCreateSchemaSQL(schemaName string) string {
 
 func (s *oplogService) generateCreateTableSQL(
 	tableName string,
+	cache domain.Cache,
 	foreignColumn domain.Column,
 	data map[string]interface{},
 ) string {
@@ -200,11 +338,11 @@ func (s *oplogService) generateCreateTableSQL(
 			Name:  "_id",
 			Value: "",
 		}
-		sb.WriteString(createColumn(tableName, sep, primaryKeyCol, s.cacheMap))
+		sb.WriteString(createColumn(tableName, sep, primaryKeyCol, cache))
 		sep = ", "
 
 		// create foreign key in the sub table
-		sb.WriteString(createColumn(tableName, sep, foreignColumn, s.cacheMap))
+		sb.WriteString(createColumn(tableName, sep, foreignColumn, cache))
 		sep = ", "
 	}
 
@@ -222,7 +360,7 @@ func (s *oplogService) generateCreateTableSQL(
 
 			columnDataType := column.DataType()
 			cacheKey := fmt.Sprintf("%s.%s.%s", tableName, columnName, columnDataType)
-			s.cacheMap[cacheKey] = true
+			cache.LoadOrStore(cacheKey, true)
 
 			sb.WriteString(fmt.Sprintf("%s%s %s", sep, columnName, columnDataType))
 			if column.PrimaryKey() {
@@ -236,9 +374,9 @@ func (s *oplogService) generateCreateTableSQL(
 	return sb.String()
 }
 
-func createColumn(tableName, sep string, column domain.Column, cacheMap map[string]bool) string {
+func createColumn(tableName, sep string, column domain.Column, cache domain.Cache) string {
 	cacheKey := fmt.Sprintf("%s.%s.%s", tableName, column.Name, column.DataType())
-	cacheMap[cacheKey] = true
+	cache.LoadOrStore(cacheKey, true)
 
 	if column.PrimaryKey() {
 		return fmt.Sprintf("%s%s %s PRIMARY KEY", sep, column.Name, column.DataType())
@@ -247,7 +385,9 @@ func createColumn(tableName, sep string, column domain.Column, cacheMap map[stri
 }
 
 func (s *oplogService) generateSQLForNestedObject(
-	schema, tableName string,
+	schema string,
+	cache domain.Cache,
+	tableName string,
 	foreignColumn domain.Column,
 	value interface{},
 ) []string {
@@ -259,19 +399,19 @@ func (s *oplogService) generateSQLForNestedObject(
 		entries := value.([]interface{})
 		for _, entry := range entries {
 			subData := entry.(map[string]interface{})
-			subStatements := s.generateCreateAlterAndInsertSQL(namespace, foreignColumn, subData)
+			subStatements := s.generateCreateAlterAndInsertSQL(namespace, cache, foreignColumn, subData)
 			sqlStatements = append(sqlStatements, subStatements...)
 		}
 		return sqlStatements
 	case reflect.Map:
 		subData := value.(map[string]interface{})
-		return s.generateCreateAlterAndInsertSQL(namespace, foreignColumn, subData)
+		return s.generateCreateAlterAndInsertSQL(namespace, cache, foreignColumn, subData)
 	}
 
 	return []string{}
 }
 
-func (s *oplogService) isEligibleForAlterTable(namespace string, data map[string]interface{}) bool {
+func (s *oplogService) isEligibleForAlterTable(namespace string, cache domain.Cache, data map[string]interface{}) bool {
 	for columnName, value := range data {
 		// skip nested objects or arrays of objects
 		skip := false
@@ -284,7 +424,7 @@ func (s *oplogService) isEligibleForAlterTable(namespace string, data map[string
 			columnDataType := column.DataType()
 
 			cacheKey := fmt.Sprintf("%s.%s.%s", namespace, columnName, columnDataType)
-			if !s.cacheMap[cacheKey] {
+			if !cache.Get(cacheKey) {
 				return true
 			}
 		}
@@ -292,7 +432,7 @@ func (s *oplogService) isEligibleForAlterTable(namespace string, data map[string
 	return false
 }
 
-func (s *oplogService) generateAlterTableSQL(namespace string, data map[string]interface{}) string {
+func (s *oplogService) generateAlterTableSQL(namespace string, cache domain.Cache, data map[string]interface{}) string {
 	var sb strings.Builder
 	sb.WriteString("ALTER TABLE ")
 	sb.WriteString(namespace)
@@ -310,8 +450,7 @@ func (s *oplogService) generateAlterTableSQL(namespace string, data map[string]i
 			columnDataType := column.DataType()
 
 			cacheKey := fmt.Sprintf("%s.%s.%s", namespace, columnName, columnDataType)
-			if !s.cacheMap[cacheKey] {
-				s.cacheMap[cacheKey] = true
+			if !cache.LoadOrStore(cacheKey, true) {
 				sb.WriteString(fmt.Sprintf("%sADD COLUMN %s %s", sep, columnName, columnDataType))
 				sep = ", "
 			}

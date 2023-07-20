@@ -30,11 +30,11 @@ const (
 func (p *PostgresWriter) WriteSQL(ctx context.Context, sqlChan <-chan string) {
 	connStr := fmt.Sprintf(
 		"postgresql://%s:%s@%s:%s/%s?sslmode=disable",
-		p.DBConfig.DBUserName,
-		p.DBConfig.DBPassword,
-		p.DBConfig.DBHost,
-		p.DBConfig.DBPort,
-		p.DBConfig.DBName,
+		p.DBConfig.UserName,
+		p.DBConfig.Password,
+		p.DBConfig.Host,
+		p.DBConfig.Port,
+		p.DBConfig.Name,
 	)
 	postgresConn, err := sql.Open(POSTGRES, connStr)
 	if err != nil {
@@ -83,6 +83,7 @@ func (p *PostgresWriter) WriteSQL(ctx context.Context, sqlChan <-chan string) {
 		}
 
 		_, err = tx.Exec(sqlCmd)
+		println(sqlCmd)
 		if err != nil {
 			tx.Rollback()
 			panic(err)

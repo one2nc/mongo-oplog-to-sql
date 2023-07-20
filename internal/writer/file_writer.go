@@ -28,6 +28,13 @@ func (f *FileWriter) WriteSQL(ctx context.Context, sqlChan <-chan string) {
 	defer outputFile.Close()
 
 	writer := bufio.NewWriter(outputFile)
+	defer func() {
+		err = writer.Flush()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}()
 
 	for sqlCmd := range sqlChan {
 		// Check if the context is done
@@ -45,11 +52,5 @@ func (f *FileWriter) WriteSQL(ctx context.Context, sqlChan <-chan string) {
 			fmt.Println(err)
 			return
 		}
-	}
-
-	err = writer.Flush()
-	if err != nil {
-		fmt.Println(err)
-		return
 	}
 }

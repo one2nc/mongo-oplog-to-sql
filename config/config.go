@@ -19,12 +19,12 @@ const (
 )
 
 type DBConfig struct {
-	DBAdaptor  string
-	DBName     string
-	DBHost     string
-	DBUserName string
-	DBPassword string
-	DBPort     string
+	Adaptor  string
+	Name     string
+	Host     string
+	UserName string
+	Password string
+	Port     string
 }
 
 type Config struct {
@@ -41,12 +41,12 @@ func Load() Config {
 	cfg := Config{
 		MongoURI: readFromEnvFile(MONGO_URI),
 		DBConfig: DBConfig{
-			DBAdaptor:  readFromEnvFile(DB_ADAPTOR),
-			DBName:     readFromEnvFile(DB_NAME),
-			DBHost:     readFromEnvFile(DB_HOST),
-			DBPort:     readFromEnvFile(DB_PORT),
-			DBUserName: readFromEnvFile(DB_USER),
-			DBPassword: readFromEnvFile(DB_PASSWORD),
+			Adaptor:  readFromEnvFile(DB_ADAPTOR),
+			Name:     readFromEnvFile(DB_NAME),
+			Host:     readFromEnvFile(DB_HOST),
+			Port:     readFromEnvFile(DB_PORT),
+			UserName: readFromEnvFile(DB_USER),
+			Password: readFromEnvFile(DB_PASSWORD),
 		},
 	}
 

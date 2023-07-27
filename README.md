@@ -1,14 +1,31 @@
 # Mongo-oplog-to-sql
 
-This repository serves as a reference implementation for the problem statement described [here](https://playbook.one2n.in/mongodb-oplog-to-sql-parser-exercise).
+## Problem Statement
+The content in this repository serves as a reference implementation for the problem statement available at https://playbook.one2n.in/mongodb-oplog-to-sql-parser-exercise.
 
-![mongo-oplog-to-sql-flow](assets/Mongo-oplog-to-sql.png)
 
 > There are solutions that are able to store the JSON document in a relational table using PostgreSQL JSON support, but it doesn't solve the real problem of 'how to really use that data'. The system enables parsing of data in MongoDB's oplog and translating it to equivalent SQL statements.
 
 The MongoDB oplog (operation log) is a capped collection that records all write operations that modify data within a MongoDB replica set, allowing for replication and providing a basis for high availability and data recovery.
 
 This is a command-line utility written in Go that allows you to parse MongoDB's oplog and translate it into equivalent SQL statements. This tool is designed to facilitate seamless migration of data from MongoDB to a SQL-based database system while preserving data integrity and structure. By automating the migration process, MongoOplogToSQL saves you time and effort.
+
+## High-Level Design (HLD)
+![mongo-oplog-to-sql-flow](assets/mongo-parser.png)
+
+This parser is designed to efficiently parse the MongoDB oplog and synchronize data to a PostgreSQL database. Here's an overview of the steps performed by the parser:
+
+1. Read Oplogs from MongoDB: A goroutine continuously reads the oplogs from the running MongoDB instance and puts them into a channel. This allows for real-time streaming of changes from MongoDB.
+
+2. Fan-out Oplogs per Database: Another goroutine reads oplogs from the channel and fans them out into multiple channels, one channel per database. At this step, the parser also creates a separate SQL channel for each database to put the generated SQL statements in the subsequent step (Step 4).
+
+3. Fan-out Oplogs per Collection: Separate goroutines read oplogs from the database channels and fan them out into multiple channels, one channel per collection. This step helps segregate the data based on collections.
+
+4. Convert Oplogs to SQL Statements: Additional goroutines read oplogs from the collection channels, convert them into SQL statements, and post the SQL statements to the SQL channels created in step 2. This conversion ensures that the data is ready for ingestion into PostgreSQL.
+
+5. Execute SQL Statements: In the main goroutine, SQL statements are read from the SQL channels created in step 2. Separate goroutines are used for each SQL channel per database to execute the SQL statements on the running PostgreSQL instance. This step finalizes the synchronization of data from MongoDB to PostgreSQL.
+
+By using goroutines and channels, the parser can effectively handle the high volume of data while ensuring data integrity and achieving concurrency, making the synchronization process efficient and scalable.
 
 ## Features
 - Parses MongoDB's oplog data
@@ -59,9 +76,11 @@ To set up the development environment, follow these steps:
 
 ## Open Issues/Cases Not Handled
 
-1. Updating records in foreign tables or associated tables.
+1. **Bookmarking Support:** This implementation does not support bookmarking, which means that the parser may process duplicate oplogs upon restart. 
 
-2. Deletion of records in foreign tables or associated tables.
+2. **Distributed Execution:** Running the parser on multiple machines in a distributed manner is not yet supported. Users should be cautious about handling duplicate data and manage their deployment accordingly. 
+
+3. **Handling Updates and Deletions in Foreign Tables:** This implementation does not address updates and deletions of records in the foreign tables or associated tables. When using the parser, please be aware that changes in related tables may not be reflected in the SQL output.
 
 ## License
 This project is licensed under the [MIT License](./LICENSE)

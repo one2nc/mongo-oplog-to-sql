@@ -109,38 +109,45 @@ func (s *oplogService) ProcessOplogsConcurrent(
 ) chan domain.SQLStatement {
 	sqlChan := make(chan domain.SQLStatement, 1000)
 	sqlCloseChan := make(chan domain.SQLStatement, 1000)
-
 	var wg sync.WaitGroup
 
 	go func() {
-	forLoop:
+		defer close(sqlChan)
+		defer func() {
+			close(sqlCloseChan)
+			// Close the out channel after all values are processed
+			for sqlStmt := range sqlCloseChan {
+				sqlStmt.Close()
+			}
+		}()
+		defer cancel()
+
+	Loop:
 		for {
 			select {
 			case oplog, ok := <-oplogChan:
 				if !ok {
-					// oplogChan is closed, stop reading Oplogs
-					break forLoop
+					break Loop // oplogChan is closed, stop reading Oplogs
 				}
 
 				name := oplog.DatabaseName()
-				if _, ok := s.databaseOplogChanMap[name]; !ok {
-					databaseChan := make(chan domain.OplogEntry, 1000)
+				databaseChan, ok := s.databaseOplogChanMap[name]
+				if !ok {
+					databaseChan = make(chan domain.OplogEntry, 1000)
 					sqlStmt := domain.NewSQLStatement(name)
 
 					sqlChan <- sqlStmt
 					sqlCloseChan <- sqlStmt
 
-					// channel will be empty at this point
 					s.databaseOplogChanMap[name] = databaseChan
 
 					wg.Add(1)
 					go s.processCollectionOplog(databaseChan, sqlStmt, &wg)
 				}
-				s.databaseOplogChanMap[name] <- oplog
+				databaseChan <- oplog
 
 			case <-s.ctx.Done():
-				// The context is done, stop reading Oplogs
-				break forLoop
+				break Loop // The context is done, stop reading Oplogs
 			}
 		}
 
@@ -148,18 +155,7 @@ func (s *oplogService) ProcessOplogsConcurrent(
 			close(collectionOplogChan)
 		}
 
-		// Wait for all collection goroutines to finish
-		wg.Wait()
-
-		close(sqlCloseChan)
-		// Close the out channel after all values are processed
-		for sqlStmt := range sqlCloseChan {
-			sqlStmt.Close()
-		}
-
-		close(sqlChan)
-
-		cancel()
+		wg.Wait() // Wait for all collection goroutines to finish
 	}()
 
 	return sqlChan
